@@ -1,0 +1,15 @@
+module lab2_6 (
+   input  bit_array_i;
+   output bit_sum_o
+);
+
+logic [$clog2($bits(bit_array_i)+1)-1:0] bit_sum_o;
+
+always_comb begin
+  bit_sum_o = '0;  
+  foreach(bit_array_i[idx]) begin
+    bit_sum_o += bit_array_i[idx];
+  end
+end
+
+endmodule

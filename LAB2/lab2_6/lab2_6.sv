@@ -1,16 +1,62 @@
-module lab2_6 (
-   input  bit_array_i,
-   output bit_sum_o
+module lab2_6 # 
+( parameter WIDTH = 8 )
+(  input                         clk_i,
+   input                         srst_i,
+   input  [WIDTH - 1: 0]         data_i,
+   input                         data_val_i,
+   output                        data_val_o,
+   output [$clog2(WIDTH) + 1: 0] data_o
 );
 
-logic [$clog2(bit_array_i)-1:0] sum = 0;
+logic [WIDTH - 1: 0]         bit_array_r;
+logic [$clog2(WIDTH) + 1: 0] cnt;
 
-always_comb begin
-  sum = 0;  
-  foreach(bit_array_i[i]) 
-    sum += bit_array_i[i];
-end
+typedef enum logic[2:0] {IDLE, START, COUNT, RESULT} state_type;
+state_type state;
 
-assign bit_sum_o = sum;
+always_ff @(posedge clk_i) begin
+   if(!srst_i) begin
+      cnt         <= '0;
+      data_val_o  <= 0;
+      bit_array_r <= '0;
+   end else begin
+	   case (state) 
+          IDLE: begin
+              cnt        <= '0;
+              data_val_o <= 0;
+                 if (data_val_i) state <= START;
+                 else            state <= IDLE;
+	      end
+			
+          START: begin
+			   bit_array_r <= data_i;
+			   data_val_o  <= 0;
+			   state       <= COUNT;
+			end
+		
+	      COUNT: begin
+		      if (bit_array_r != '0) begin
+		         cnt <= cnt + 1;
+	   	      bit_array_r <= bit_array_r & (bit_array_r - 1);
+					state <= COUNT;
+	         end else begin
+					state <= RESULT;
+				end
+          end
+			
+          RESULT: begin
+              data_o     <= cnt;
+              data_val_o <= 1;	
+              state      <= IDLE;		    
+          end	
+			
+          default: begin
+			   state <= IDLE;
+          end
+			
+      endcase	
+   end
+end			
+	
 
 endmodule

@@ -20,39 +20,39 @@ always_ff @(posedge clk_i) begin
       data_val_o  <= 0;
       bit_array_r <= '0;
    end else begin
-	   case (state) 
-          IDLE: begin
-              cnt        <= '0;
-              data_val_o <= 0;
-                 if (data_val_i) state <= START;
-                 else            state <= IDLE;
-	      end
+      case (state) 
+         IDLE: begin
+            cnt        <= '0;
+            data_val_o <= 0;
+            if (data_val_i) state <= START;
+            else            state <= IDLE;
+	 end
 			
-          START: begin
-			   bit_array_r <= data_i;
-			   data_val_o  <= 0;
-			   state       <= COUNT;
-			end
+         START: begin
+            bit_array_r <= data_i;
+            data_val_o  <= 0;
+            state       <= COUNT;
+         end
 		
-	      COUNT: begin
-		      if (bit_array_r != '0) begin
-		         cnt <= cnt + 1;
-	   	      bit_array_r <= bit_array_r & (bit_array_r - 1);
-					state <= COUNT;
-	         end else begin
-					state <= RESULT;
-				end
-          end
+         COUNT: begin
+            if (bit_array_r != '0) begin
+               cnt <= cnt + 1;
+               bit_array_r <= bit_array_r & (bit_array_r - 1);
+               state <= COUNT;
+            end else begin
+               state <= RESULT;
+            end
+         end
 			
-          RESULT: begin
-              data_o     <= cnt;
-              data_val_o <= 1;	
-              state      <= IDLE;		    
-          end	
+         RESULT: begin
+            data_o     <= cnt;
+            data_val_o <= 1;	
+            state      <= IDLE;		    
+         end	
 			
-          default: begin
-			   state <= IDLE;
-          end
+         default: begin
+            state <= IDLE;
+         end
 			
       endcase	
    end

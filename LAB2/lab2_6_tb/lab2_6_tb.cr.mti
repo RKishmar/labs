@@ -1,0 +1,15 @@
+D:/lab2_6_tb/lab2_6.sv {1 {vlog -work work -sv D:/lab2_6_tb/lab2_6.sv
+Model Technology ModelSim ALTERA vlog 10.1b Compiler 2012.04 Apr 27 2012
+-- Compiling module lab2_6
+
+Top level modules:
+	lab2_6
+
+} {} {}} D:/lab2_6_tb/lab2_6_tb.sv {1 {vlog -work work -sv D:/lab2_6_tb/lab2_6_tb.sv
+Model Technology ModelSim ALTERA vlog 10.1b Compiler 2012.04 Apr 27 2012
+-- Compiling module lab2_6_tb
+
+Top level modules:
+	lab2_6_tb
+
+} {} {}}

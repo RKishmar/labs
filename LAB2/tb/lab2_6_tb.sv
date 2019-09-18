@@ -13,6 +13,7 @@ module lab2_6_tb;
   logic                                                   result_valid;
 
   logic [ DATA_WIDTH - 1 : 0 ]                            data_rnd;
+  logic [ DATA_WIDTH - 1 : 0 ]                            data_temp;
   logic [ $clog2( DATA_WIDTH ) - 1 : 0 ]                  result_expect;
   logic [ ( $clog2( DATA_WIDTH ) + DATA_WIDTH ) - 1 : 0 ] testvectors[1000:0];
   integer                                                 test_num; 
@@ -80,7 +81,7 @@ module lab2_6_tb;
       $display( "%d tests completed with %d errors", test_num, errors );
       $display( " " );
       
-  $finish;    
+  $stop;    
    
   end  
 

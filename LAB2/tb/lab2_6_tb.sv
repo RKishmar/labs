@@ -3,7 +3,7 @@
 module lab2_6_tb;
 
   localparam                                              DATA_WIDTH  = 12;
-  localparam                                              TEST_LENGTH = 100;
+  localparam                                              TEST_LENGTH = 1000000;
  
   logic                                                   clk;
   logic                                                   reset;
@@ -49,27 +49,37 @@ module lab2_6_tb;
     test_num   = 0; 
   end
 
+  task automatic display_error ();
+    begin
+      $display( " " );
+      $display( "Error! test iteration number = %d...", test_num );
+      $display( "data was tested = %b", data );
+      $display( "result received = %b", result );
+      $display( "result expected = %b", result_expect );
+    end
+  endtask
+  
   initial begin
     while ( test_num < TEST_LENGTH ) begin
       
+      @( result_valid == 0 ); 
+      #1; 
+      
       data_rnd      = $urandom%{2**(DATA_WIDTH)-1};  
       data_temp     = data_rnd;
+      data          = data_rnd;      
       result_expect = 0;
       
-      while ( data_temp !== '0 ) begin
+      while ( data_temp !== 'b0 ) begin
         data_temp     = data_temp & ( data_temp - 1 );
         result_expect += 1;
       end 
-        
-      data = data_rnd;
       
       @( result_valid == 1 ); 
       #1; 
      
       if ( result_expect !== result ) begin
-        $display( " " );
-        $display( "Error! test iteration number = %d,   data tested = %b,   result received = %b,   result expected = %b ", test_num, data, result, result_expect );
-
+        display_error ();
         errors = errors + 1;
       end
       

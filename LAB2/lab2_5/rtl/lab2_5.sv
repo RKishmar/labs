@@ -6,108 +6,48 @@ module lab2_5 #( parameter WIDTH = 8)
    output reg [ WIDTH - 1 : 0 ] data_right_o
 );
 
-// logic [ $clog2(WIDTH) : 0]   l, r;
-
-logic [ WIDTH - 1 : 0 ]      tmp;
-logic [ WIDTH - 1 : 0 ]      lft, rgh, data_left_r, data_right_r;
+logic [ WIDTH - 1 : 0 ]      lft, rgh, lft_rev, tmp;
 
 //-----------------------------------------------------------------------------
 
-
-byte unsigned l, r;
-
 always_ff @( posedge clk_i or negedge srst_i )
-  begin
-    tmp <= data_i; 
-		  
+  begin 
     if( ! srst_i ) 
-	   begin
+	    begin
         data_left_o  <= 0;
-		  data_right_o <= 0;
-	 end else
-	   begin
-		  data_left_o  <= data_left_r;
-		  data_right_o <= data_right_r;
+		    data_right_o <= 0;
+	  end else
+	    begin
+		    data_left_o  <= lft;
+		    data_right_o <= rgh;
     end
 end
 
-/*
 
-always_comb
-  begin
-
-  
-    if ( tmp == 0 ) 
-      begin
-        data_left_r  = 0;
-        data_right_r = 0;
-    end else  
-      begin
-      
-	     for ( l = 7; l >= 0; l-- )
-    	    if ( tmp [ l ] == 1 ) 
-			   break;
-        end 
-		  
-		  for ( r = 0; r < 8; r++ )
-	       if ( tmp [ r ] == 1 ) 
-			   break;
-        end
-		  
-		  
-//        while ( ! tmp [ r ] ) 
-//          r = r + 1;  
-
-        lft = '0;
-		  rgh = '0;
-		  lft [ l ] = 1;
-		  rgh [ r ] = 1;
-        data_left_r  = lft;    
-        data_right_r = rgh;
-		  
-		end
-		  
-end
-*/
-
-
-//------------------------------------------------------------------------------
-
-
-/*
 always_comb
   begin 
-    lft = { << { data_i }};             // temporary reverse the data bus           
-    rgh = data_i; 
-    
-    lft = lft - ( lft & ( lft - 1 ) );  // leave only the first 1 from the right
-    rgh = rgh - ( rgh & ( rgh - 1 ) );  // leave only the first 1 from the right
-    
-    data_left_r  = { << { lft }};       // reverse the bus back
-    data_right_r = rgh;                  
+    lft_rev = tmp - ( tmp & ( tmp - 1 ) );
+    rgh = data_i - ( data_i & ( data_i - 1 ) );
 end
-
-*/
-
 
 //------------------------------------------------------------------------------
 
-/*
-always_comb
-  begin 
-    tmp = data_i;
-    lft = tmp;
-    while ( ! tmp ) begin
-      lft = tmp;
-      tmp = tmp & ( tmp - 1 );
-    end
-    
-    data_left_o  = lft;
-    data_right_o = data_i - ( data_i & ( data_i - 1 ) );
-end
-*/
+genvar n;
+generate 
+  for( n = 0; n < WIDTH; n = n + 1 )
+    begin : wre
+      assign tmp [ WIDTH - 1 - n ] = data_i[ n ];
+  end
+endgenerate
+
+genvar m;
+generate 
+  for( m = 0; m < WIDTH; m = m + 1 )
+    begin : qwe
+      assign lft [ WIDTH - 1 - m ] = lft_rev[ m ];
+  end
+endgenerate
 
 //------------------------------------------------------------------------------
-
 
 endmodule

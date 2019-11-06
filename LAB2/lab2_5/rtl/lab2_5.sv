@@ -8,7 +8,7 @@ module lab2_5 #( parameter WIDTH = 8)
 
 logic [ WIDTH - 1 : 0 ]      lft, rgh, lft_rev, tmp;
 
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------
 
 always_ff @( posedge clk_i or negedge srst_i )
   begin 
@@ -23,14 +23,30 @@ always_ff @( posedge clk_i or negedge srst_i )
     end
 end
 
+//--------( example without reversing the bus / special thanx to Br.Kernigan )-----------------
 
 always_comb
+  begin 
+    tmp = data_i;
+    rgh = tmp - ( tmp & ( tmp - 1 ) );	 
+	  
+	  for ( int i = 0; i < WIDTH; i = i + 1 ) 
+	    begin
+        if ( tmp !== '0 ) 
+	        begin
+            lft = tmp;
+            tmp = tmp & ( tmp - 1 );
+      end
+    end
+end
+
+//--------( example with reversing the bus / special thanx to Br.Kernigan )--------------------
+
+/* always_comb
   begin 
     lft_rev = tmp - ( tmp & ( tmp - 1 ) );
     rgh = data_i - ( data_i & ( data_i - 1 ) );
 end
-
-//------------------------------------------------------------------------------
 
 genvar n;
 generate 
@@ -46,8 +62,8 @@ generate
     begin : qwe
       assign lft [ WIDTH - 1 - m ] = lft_rev[ m ];
   end
-endgenerate
+endgenerate */
 
-//------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------
 
 endmodule

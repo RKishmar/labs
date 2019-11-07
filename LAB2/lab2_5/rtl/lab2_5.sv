@@ -41,16 +41,16 @@ always_comb
     n = 0; 
     m = WIDTH - 1;
 	 
-	  for ( int i = WIDTH - 1; i >= 0; i = i - 1 ) 
+    for ( int i = WIDTH - 1; i >= 0; i = i - 1 ) 
       begin
-		  if ( ( tmp [i] == 1 ) && ( i > n ) )
-        n = i;
-		  if ( ( tmp [i] == 1 ) && ( i < m ) )
-		    m = i;
+        if ( ( tmp [i] == 1 ) && ( i > n ) )
+          n = i;
+        if ( ( tmp [i] == 1 ) && ( i < m ) )
+          m = i;
     end 
 	 
-	  lft[n] = 1;
-	  rgh[m] = 1;
+    lft[n] = 1;
+    rgh[m] = 1;
 	 
 end 
 
@@ -60,11 +60,11 @@ always_comb
   begin 
     tmp = data_i;
     lft = '0;
-	  n = 0; 
+    n = 0; 
 	 
-	  for ( int i = WIDTH - 1; i >= 0; i = i - 1 ) 
+    for ( int i = WIDTH - 1; i >= 0; i = i - 1 ) 
       begin
-		    if ( ( tmp [i] == 1 ) && ( i > n ) )
+        if ( ( tmp [i] == 1 ) && ( i > n ) )
           n = i;
     end 
 	 

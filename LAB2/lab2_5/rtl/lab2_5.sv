@@ -22,13 +22,13 @@ always_ff @( posedge clk_i or negedge srst_i )
         if ( data_i == '0 )
           begin
             data_left_o  <= '0;
-		        data_right_o <= '0;
-		    end else 
-		      begin
+            data_right_o <= '0;
+        end else 
+          begin
             data_left_o  <= lft;
-		        data_right_o <= rgh;
-		    end
-      end
+            data_right_o <= rgh;
+        end
+    end
 end
 
 //--------( example 1 without reversing the bus / works fine in ModelSim )------

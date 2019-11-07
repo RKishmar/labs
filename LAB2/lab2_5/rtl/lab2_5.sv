@@ -7,63 +7,97 @@ module lab2_5 #( parameter WIDTH = 8)
 );
 
 logic [ WIDTH - 1 : 0 ]      lft, rgh, lft_rev, tmp;
+logic [ $clog2(WIDTH) : 0 ]  n, m;
 
 //---------------------------------------------------------------------------------------------
 
 always_ff @( posedge clk_i or negedge srst_i )
   begin 
     if( ! srst_i ) 
-	    begin
+      begin
         data_left_o  <= 0;
-		    data_right_o <= 0;
-	  end else
-	    begin
-		    data_left_o  <= lft;
-		    data_right_o <= rgh;
-    end
+        data_right_o <= 0;
+    end else
+      begin
+        if ( data_i == '0 )
+          begin
+            data_left_o  <= '0;
+		        data_right_o <= '0;
+		    end else 
+		      begin
+            data_left_o  <= lft;
+		        data_right_o <= rgh;
+		    end
+      end
 end
 
-//--------( example without reversing the bus / special thanx to Br.Kernigan )-----------------
+//--------( example 1 without reversing the bus / works fine in ModelSim )------
 
 always_comb
   begin 
     tmp = data_i;
-    rgh = tmp - ( tmp & ( tmp - 1 ) );	 
-	  
-	  for ( int i = 0; i < WIDTH; i = i + 1 ) 
-	    begin
-        if ( tmp !== '0 ) 
-	        begin
-            lft = tmp;
-            tmp = tmp & ( tmp - 1 );
-      end
-    end
-end
+    lft = '0;
+    rgh = '0;
+    n = 0; 
+    m = WIDTH - 1;
+	 
+	  for ( int i = WIDTH - 1; i >= 0; i = i - 1 ) 
+      begin
+		  if ( ( tmp [i] == 1 ) && ( i > n ) )
+        n = i;
+		  if ( ( tmp [i] == 1 ) && ( i < m ) )
+		    m = i;
+    end 
+	 
+	  lft[n] = 1;
+	  rgh[m] = 1;
+	 
+end 
 
-//--------( example with reversing the bus / special thanx to Br.Kernigan )--------------------
-
-/* always_comb
+//--------( example 2 without reversing the bus / special thanx to Br.Kernighan / works fine in ModelSim )------
+/*
+always_comb
+  begin 
+    tmp = data_i;
+    lft = '0;
+	  n = 0; 
+	 
+	  for ( int i = WIDTH - 1; i >= 0; i = i - 1 ) 
+      begin
+		    if ( ( tmp [i] == 1 ) && ( i > n ) )
+          n = i;
+    end 
+	 
+	  lft[n] = 1;
+	 
+	  rgh = tmp - ( tmp & ( tmp - 1 ) );	 
+	 
+ end 	  
+*/	  
+//--------( example 3 with reversing the bus / special thanx to Br.Kernighan / works fine )--------
+/*
+always_comb
   begin 
     lft_rev = tmp - ( tmp & ( tmp - 1 ) );
     rgh = data_i - ( data_i & ( data_i - 1 ) );
 end
 
-genvar n;
+genvar k;
 generate 
-  for( n = 0; n < WIDTH; n = n + 1 )
+  for( k = 0; k < WIDTH; k = k + 1 )
     begin : wre
-      assign tmp [ WIDTH - 1 - n ] = data_i[ n ];
+      assign tmp [ WIDTH - 1 - k ] = data_i[ k ];
   end
 endgenerate
 
-genvar m;
+genvar p;
 generate 
-  for( m = 0; m < WIDTH; m = m + 1 )
+  for( p = 0; p < WIDTH; p = p + 1 )
     begin : qwe
-      assign lft [ WIDTH - 1 - m ] = lft_rev[ m ];
+      assign lft [ WIDTH - 1 - p ] = lft_rev[ p ];
   end
-endgenerate */
-
+endgenerate 
+*/
 //---------------------------------------------------------------------------------------------
 
 endmodule

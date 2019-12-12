@@ -2,20 +2,20 @@
   
 
   localparam DATA_WIDTH  = 16;
-  localparam TEST_LENGTH = 5000;
+  localparam TEST_LENGTH = 100;
 
-  logic                                                   clk;
-  logic                                                   reset;
-  logic   [ DATA_WIDTH - 1 : 0 ]                          data_to_input;
-  logic   [ $clog2( DATA_WIDTH )-1 : 0 ]                  data_size;
-  logic                                                   data_val;
-  logic                                                   serial_out;
-  logic                                                   serial_val;
-  logic                                                   busy;
+  logic                                   clk;
+  logic                                   reset;
+  logic   [ DATA_WIDTH - 1 : 0 ]          data_to_input;
+  logic   [ $clog2( DATA_WIDTH )-1 : 0 ]  data_size;
+  logic                                   data_val;
+  logic                                   serial_out;
+  logic                                   serial_val;
+  logic                                   busy;
   
-  logic   [ DATA_WIDTH - 1 : 0 ]                          temp;
-  integer                                                 test_num, errors, m; 
-  logic   [ $clog2 (DATA_WIDTH) - 1 : 0 ]                 partition_size;  
+  logic   [ DATA_WIDTH - 1 : 0 ]          temp;
+  integer                                 test_num, errors, m; 
+  logic   [ $clog2 (DATA_WIDTH) - 1 : 0 ] partition_size;  
 
 //---------------------------------------------------------------------------- 
 
@@ -37,9 +37,21 @@ endclass
     
     automatic transaction trn = new();
     
-    repeat ( n ) begin    
+    repeat ( n ) begin   
+      $display ("TRANSMIT START");
       trn.randomizing();
       mbx.put( trn );
+      $display ("MAIL STUFFED");
+      wait ( busy == 0 );
+	  
+      @( posedge clk ) ;	  
+      data_to_input = trn.data_tr;
+      data_size     = trn.tr_size;
+      data_val      = 1;
+	  
+      @( posedge clk ) ;
+      data_val      = 0;
+      $display ("TRANSMIT END");
     end 
   
   endtask : transmit_tsk
@@ -49,96 +61,55 @@ endclass
   task receiver_tsk( input mailbox #( transaction ) mbx );
     transaction trn;
     forever begin
+      $display ("RECEIVER START");
+      wait  ( serial_val );
+      @( posedge clk );
+      $display ("RECEIVER BIT INPUT START");
+      for ( int b = 0; b < DATA_WIDTH; b++ )
+        if ( serial_val )
+          begin 
+            temp [ DATA_WIDTH - 1 - b ] = serial_out;
+            @( posedge clk );
+        end
+      $display ("WAITING 4 MAIL IN");
       mbx.get( trn );
-      test_tsk ( trn );
-      
-        if ( test_num == TEST_LENGTH )  
-          summary_tsk();
+      $display ("GOT MAIL IN");
+      if ( trn.tr_size > 2 ) 
+        for ( int t = DATA_WIDTH - 1; t < DATA_WIDTH - trn.tr_size - 1; t-- )
+          if ( temp [ t ] !== trn.data_tr [ t ] )
+            display_error ();  
+
+      test_num = test_num + 1;
+		  
+      if ( test_num == TEST_LENGTH )  
+        summary_tsk();
+		 $display ("RECEIVER FINISH", test_num );
     end
   endtask : receiver_tsk
 
-//----------------------------------------------------------------------------  
-
-task test_tsk ( transaction trn );
-  begin
-    m             = DATA_WIDTH - 1;
-    temp          = '0;
-    
-    data_to_input = trn.data_tr;
-    data_size     = trn.tr_size;
-    data_val      = 1;
-    
-    @(posedge clk);
-    data_val      = 0;
-    @(posedge clk);
-    @(posedge clk);
-    @(posedge clk);
-            
-    $display ( "                      Data = %b", data_to_input );
-    $display ( "                      Size = %d", data_size );
-    $display( " " );
-    
-    for ( m = DATA_WIDTH - 1; m > DATA_WIDTH - 1 - data_size; m = m - 1 ) begin
-    
-    $display( "Paralel input_bit = %d", data_to_input [ m ] );
-    $display( "Serial output_bit = %d", serial_out );
-    $display( " " );
-    
-    if ( data_size >= 3 ) 
-      begin 
-        if ( m > DATA_WIDTH - data_size ) 
-          begin
-            temp[ m ] = serial_out;
-            if ( data_to_input [ m ] !== serial_out )
-              begin
-                $display ("Wrong bits error");
-                display_error ();
-                errors = errors + 1;
-            end
-        end
-      end else 
-        if ( serial_val == 1 ) 
-          begin
-            $display ("Validation error");
-            display_error ();
-            errors = errors + 1;
-        end 
-
-    @( posedge clk );
-      
-    end 
-
-    test_num = test_num + 1;
-    
-  end 
-endtask : test_tsk   
-
 //---------------------------------------------------------------------------- 
 
-task automatic display_error ();
-  begin
-    $display( " " );
-    $display( "Error test  ?%d", test_num  );
-    $display( "Random data to test = %b", data_to_input );
-    $display( "Random data size =   %d" , data_size  );
-    $display( "Output was valid? =   %b", serial_val );
-    $display( "Module was busy? =    %b", busy );
-    $display( "Bit number = %d"         , m );
-    $display( "Serial_out =          %b", serial_out );
-    $display( "Result received  =    %b", temp  );   
-    $display( " " );    
-    $stop;
-  end
-endtask : display_error
+  task automatic display_error ();
+    begin
+      $display( " " );
+      $display( "Error test  ?%d",          test_num  );
+      $display( "Random data to test = %b", data_to_input );
+      $display( "Random data size =   %d" , data_size  );
+      $display( "Result received  =    %b", temp  );   
+      $display( " " );    
+      $stop;
+      errors = errors + 1;
+    end
+  endtask : display_error
 
-task summary_tsk ();
-  begin
-    $display( " " );
-    $display( "Summary: %d tests completed with %d error(s)", test_num, errors );
-    $display( " " );
-    $stop;    
-  end  
-endtask : summary_tsk
+  task summary_tsk ();
+    begin
+      $display( " " );
+      $display( "Summary: %d tests completed with %d error(s)", test_num, errors );
+      $display( " " );
+      $stop;    
+    end  
+  endtask : summary_tsk
 
 //----------------------------------------------------------------------------  
 

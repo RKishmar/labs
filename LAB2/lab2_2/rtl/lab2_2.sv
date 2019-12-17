@@ -59,6 +59,7 @@ end
  
 always_ff @( posedge clk_i )
   begin 
+  busy_o <= 0;
     if ( !srst_i ) 
       begin
         busy_o         <= 0;

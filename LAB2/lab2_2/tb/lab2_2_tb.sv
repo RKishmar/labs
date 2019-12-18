@@ -2,7 +2,7 @@
   
 
   localparam DATA_WIDTH  = 16;
-  localparam TEST_LENGTH = 100;
+  localparam TEST_LENGTH = 50000;
 
   logic                                   clk;
   logic                                   reset;
@@ -24,8 +24,12 @@ class transaction;
   rand bit [ $clog2( DATA_WIDTH )-1 : 0 ] tr_size;
   
   function void randomizing ();
+  
+    process::self.srandom(123);
+  
     data_tr = $urandom%{ 2 ** DATA_WIDTH - 1 };
     tr_size = $urandom%{ DATA_WIDTH - 1 };
+    
   endfunction
   
 endclass
@@ -41,7 +45,7 @@ endclass
       $display ("TRANSMIT START");
       trn.randomizing();
       mbx.put( trn );
-      $display ("MAIL STUFFED");
+      //$display ("MAIL STUFFED");
       wait ( busy == 0 );
 	  
       @( posedge clk ) ;	  
@@ -64,16 +68,16 @@ endclass
       $display ("RECEIVER START");
       wait  ( serial_val );
       @( posedge clk );
-      $display ("RECEIVER BIT INPUT START");
+      //$display ("RECEIVER BIT INPUT START");
       for ( int b = 0; b < DATA_WIDTH; b++ )
         if ( serial_val )
           begin 
             temp [ DATA_WIDTH - 1 - b ] = serial_out;
             @( posedge clk );
         end
-      $display ("WAITING 4 MAIL IN");
+      //$display ("WAITING 4 MAIL IN");
       mbx.get( trn );
-      $display ("GOT MAIL IN");
+      //$display ("GOT MAIL IN");
       if ( trn.tr_size > 2 ) 
         for ( int t = DATA_WIDTH - 1; t < DATA_WIDTH - trn.tr_size - 1; t-- )
           if ( temp [ t ] !== trn.data_tr [ t ] )

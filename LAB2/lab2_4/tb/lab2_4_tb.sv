@@ -23,25 +23,6 @@
 
 */
 
-/*
-
-# Error test  #          0
-# Semafore state expected: xxx
-# Semafore state actual:   000
-initial, once
-
-# Error test  #          3
-# Semafore state expected: 010
-# Semafore state actual:   000
-2 times
-
-# Error test  #         10
-# Semafore state expected: 000
-# Semafore state actual:   100
-
-multiple
-*/
-
 
 
 module lab2_4_tb;
@@ -50,16 +31,16 @@ localparam CLK_I_FREQ_T = 20_000_000;
 localparam CLK_MS_NUM_T = CLK_I_FREQ_T / 1000;
 localparam DATA_WIDTH_T = 16;
 
-localparam MIN_DATA_RND = 5_000;
-localparam MAX_DATA_RND = 50_000;
-localparam TEST_LENGTH  = 64;
+localparam MIN_DATA_RND = 50;  
+localparam MAX_DATA_RND = 500; 
+localparam TEST_LENGTH  = 300;
 
 localparam BLNK_HLF_PER = 400;
 localparam GRN_BLNK_NUM = 5;
-localparam RED_YLW_TIME = 3000;
-localparam RED_TIME_DFT = 7000;
-localparam YLW_TIME_DFT = 3000;
-localparam GRN_TIME_DFT = 7000;
+localparam RED_YLW_TIME = 300;
+localparam RED_TIME_DFT = 700;
+localparam YLW_TIME_DFT = 300;
+localparam GRN_TIME_DFT = 700;
 
 localparam [ 2 : 0 ] red_reg = 3'b100;
 localparam [ 2 : 0 ] yel_reg = 3'b010;
@@ -82,10 +63,11 @@ logic [ 2 : 0 ]                ryg_reg_t;
 
 int                            cnt = 0;
 int                            errors  = 0, test_num   = 0;
-bit                            rcv_end = 1, trm_end    = 1;
+bit                            rcv_end = 0, trm_end    = 0;
 
 static int             cnt_t [ 2 : 0 ] = { 0, 0, 0 }; 
-
+static logic [ 2 : 0 ] state_t = 0;
+  
 //--------------------------------------------------------------------------------
 
 class transaction;
@@ -115,14 +97,18 @@ task transmit_tsk( input int unsigned n,
     trn.randomizes();
     mbx.put( trn );
 	
-    @( posedge clk_t );
-  	  
+	trm_end = 1;
+	#1;
+    trm_end = 0;
+	 
     cmd_data_t  = trn.cmd_data_tr;
     cmd_type_t  = trn.cmd_type_tr;
     cmd_valid_t = trn.cmd_valid_tr;
 
     test_num = test_num + 1;
-   
+	
+    wait ( rcv_end );
+	
   end
 
 endtask : transmit_tsk
@@ -131,34 +117,41 @@ endtask : transmit_tsk
 
 task receiver_tsk( input mailbox #( transaction ) mbx );
   transaction trn;
-  static logic [ 2 : 0 ] state_t = 0;
   
   forever begin
-    //$display ("---------- RECEIVER START -----------");
-	if ( cnt == 0 ) 
+
+    if ( cnt == 0 ) 
       begin
-      
+        
+      rcv_end = 1;
+      wait ( trm_end );
+      rcv_end = 0;
+		
         mbx.get( trn );
+		
         if ( trn.cmd_valid_tr == 1 )
           begin 
             unique case ( trn.cmd_type_tr ) 
               0:
                 begin
-                  $display( " STATE CHANGE TO: OFF STATE " );
+                  $display( " " );
+                  $display( " ~  STATE CHANGE TO: OFF STATE " );
                   state_t = 0;
                   cnt_t   = { 0, 0, 0 };
               end
 			  
               1:
                 begin
-                  $display( " STATE CHANGE TO: STANDARD " );
+                  $display( " " );
+                  $display( " ~  STATE CHANGE TO: STANDARD " );
                   state_t = 1;
                   cnt_t   = { 0, 0, 0 };
               end	
 			  
               2:
                 begin
-                  $display( " STATE CHANGE TO: UNREGULATED " );
+                  $display( " " );
+                  $display( " ~  STATE CHANGE TO: UNREGULATED " );
                   state_t = 2;
                   cnt_t   = { 0, 0, 0 };
               end
@@ -166,39 +159,34 @@ task receiver_tsk( input mailbox #( transaction ) mbx );
               3:
                 begin 
                   RYG_TIME [ 2 ] = trn.cmd_data_tr;
-                  $display( " RED/YELLOW/GREEN TIME: %d", RYG_TIME [ 2 ] );
               end
 			  
               4:
                 begin 
-                  RYG_TIME [ 0 ] = trn.cmd_data_tr;
-                  $display( " RED/YELLOW/GREEN TIME: %d", RYG_TIME [ 0 ] );                  
+                  RYG_TIME [ 0 ] = trn.cmd_data_tr;                 
               end
 			  
               5:
                 begin 
-                  RYG_TIME [ 1 ] = trn.cmd_data_tr;
-                  $display( " RED/YELLOW/GREEN TIME: %d", RYG_TIME [ 1 ] );                 
+                  RYG_TIME [ 1 ] = trn.cmd_data_tr;                
               end
 			  
             endcase
         end
 
-        cnt = trn.duration_tr;   
+        cnt = RYG_TIME [ state_t ];   
   
-    end else // if ( cnt == 0 )
+    end else 
       begin 
-        //----------------------------------------------------------------------------------
 		
-        unique case ( state_t ) // make sure cnt_t are used correctly in this CASE construct
-	
+        unique case ( state_t ) 
           0:
             begin
               ryg_reg_t = off_reg;
           end
 	  
           1:
-            begin // RYG [ 0 ] + RED_YLW_TIME + RYG [ 2 ] + GREEN_BLNK_TIME + RYG [ 1 ]
+            begin 
               cnt_t [ 1 ] = cnt_t [ 1 ] + 1;
 	            if ( cnt_t [ 1 ] < ( CLK_MS_NUM_T * RYG_TIME [ 0 ] ) ) 
                   begin
@@ -246,6 +234,7 @@ task receiver_tsk( input mailbox #( transaction ) mbx );
           end	 
            
         endcase
+        
 		//----------------------------------------------------------------------------------
 		
     end
@@ -253,23 +242,14 @@ task receiver_tsk( input mailbox #( transaction ) mbx );
   cnt = cnt - 1;
 	
   @( posedge clk_t );
-/*	
-  if ( ryg_reg !== ryg_reg_t ) 
-    report_error ();
-  else if ( cnt == 0 )
-    report_success();   
-*/
-  if ( cnt == 0 )
+
     if ( ryg_reg !== ryg_reg_t ) 
-      report_error ();
+      report_error();
     else
       report_success();
 
   if ( test_num == TEST_LENGTH )  
     summary_tsk();
-	
-  
-  //$display ("RECEIVER FINISH", test_num );
   
   end
 endtask : receiver_tsk
@@ -279,28 +259,27 @@ endtask : receiver_tsk
 task automatic report_error ();
   begin
     errors = errors + 1;
-    $display( " - " );
-    $display( "  Error test  #%d", test_num );
-    $display( "  Semafore state expected: %b", ryg_reg_t );
-    $display( "  Semafore state actual:   %b", ryg_reg   ); 
-    $display( "  Counters cnt_t:  %d, %d, %d", cnt_t [ 0 ], cnt_t [ 1 ], cnt_t [ 2 ] ); 
-        
-    $display( " " );    
-    //$stop;
+    $display( " " );
+    $display( " -  Error test  #                 %d ", test_num                      );
+    $display( "    traffic light state expected: %b ", ryg_reg_t                     );
+    $display( "    traffic light state actual:   %b ", ryg_reg                       ); 
+    $display( "    State expected:               %d ", state_t                       );
+    $display( "    count length / cnt: %d /      %d ", RYG_TIME [ state_t ], cnt );	  
+    $stop;
   end
 endtask : report_error
 
 task automatic report_success ();
   begin
-    $display( " + " );
-    $display( " TEST SUCCESS, test number: %d, semafore state: %b ", test_num, ryg_reg );
+    $display( " " );
+    $display( " +  TEST SUCCESS, trafic light state: %b ", ryg_reg );  
   end 
 endtask : report_success
 
 task automatic summary_tsk ();
   begin
     $display( " " );
-    $display( " Summary: %d tests completed with %d error(s) ", test_num, errors );
+    $display( "  Summary: %d tests completed with %d error(s) ", test_num, errors );
     $display( " " );
     $stop;    
   end  
@@ -355,9 +334,9 @@ DUT
     mbx = new( 1 );
 
     fork
-      process::self.srandom( 37 );  
+      process::self.srandom( 373 );  
       transmit_tsk ( TEST_LENGTH, mbx );
-      process::self.srandom( 73 );  
+      process::self.srandom( 737 );  
       receiver_tsk ( mbx );
     join
     

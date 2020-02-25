@@ -18,9 +18,6 @@
 
 */
 
-/*  introduce CLK_I_FREQ parameter  */
-
-
 module lab2_4 #( parameter DATA_WIDTH          = 16,
                  parameter CLK_I_FREQ          = 20_000_000,
                  parameter BLINK_HALF_PERIOD   = 1000,
@@ -49,152 +46,139 @@ localparam [ 2 : 0 ]             grn_reg   = 3'b001;
 localparam [ 2 : 0 ]             r_y_reg   = 3'b110;
 localparam [ 2 : 0 ]             off_reg   = 3'b000;
 
-logic      [ 2 : 0 ]             ryg_reg   = 0;
+logic      [ 2 : 0 ]             ryg_reg   = off_reg;
 assign                           red_o     = ryg_reg [ 0 ];
 assign                           yellow_o  = ryg_reg [ 1 ];
 assign                           green_o   = ryg_reg [ 2 ];
+
+logic                            grn_bln_cnt, yel_bln_cnt;
+logic      [ 2 : 0 ]             st_mode;
 
 localparam                              GREEN_BLINK_TIME            = GREEN_BLINKS_NUM * BLINK_HALF_PERIOD * 2;
 localparam logic [ DATA_WIDTH - 1 : 0 ] RYG_TIME_DEFAULTS [ 2 : 0 ] = '{ RED_TIME_DEFAULT, YELLOW_TIME_DEFAULT, GREEN_TIME_DEFAULT };
 logic            [ DATA_WIDTH - 1 : 0 ] RYG_TIME          [ 2 : 0 ] = RYG_TIME_DEFAULTS;
 
-typedef enum logic [ 1 : 0 ] { IDLED, BASIC, UNREG } state_type;
+typedef enum logic [ 2 : 0 ] { OFF_S, RED_S, RED_YEL_S, GRN_S, GRN_BLN_S, YEL_S, YEL_BLN_S } state_type;
 state_type curr_state, next_state;
 
 //-----------------------------------------------------------------------
 
-function int num_of_clks ( int param );
-  return ( param * ( CLK_I_FREQ / 1000 ) ); // $rtoi ?
+assign RED_CNT     = num_clks( RYG_TIME [ 0 ] );
+assign RED_YEL_CNT = num_clks( RYG_TIME [ 0 ] ) + num_clks( RED_YELLOW_TIME );
+assign GRN_CNT     = num_clks( RYG_TIME [ 0 ] ) + num_clks( RED_YELLOW_TIME ) + 
+                     num_clks( RYG_TIME [ 2 ] );
+assign GRN_BLN_CNT = num_clks( RYG_TIME [ 0 ] ) + num_clks( RED_YELLOW_TIME  ) + 
+                     num_clks( RYG_TIME [ 2 ] ) + num_clks( GREEN_BLINK_TIME );
+assign MAX_CNT     = num_clks( RYG_TIME [ 0 ] ) + num_clks( RED_YELLOW_TIME  ) + 
+                     num_clks( RYG_TIME [ 2 ] ) + num_clks( GREEN_BLINK_TIME ) +  
+                     num_clks( RYG_TIME [ 1 ] ); 
+
+//-----------------------------------------------------------------------
+
+function int num_clks ( int param );
+  return ( param * ( CLK_I_FREQ / 1000 ) ); 
 endfunction
 
 task reset_cnts ();
-  blink_cnt <= 0;
-  light_cnt <= 0;
-endtask : reset_cnts;
-
-task blink( logic [ 2 : 0 ] on_state, int half_period );
+  $display( " " );
+  $display( " DUT RESETS BLINK COUNTERS " );
+  $display( " NEXT STATE:    %b ", next_state );
+  $display( " CURRENT STATE: %b ", curr_state );
+  $display( " " );
   
-  blink_cnt <= blink_cnt + 1; 
-  
-  if ( blink_cnt < half_period ) 
-    begin
-      ryg_reg <= on_state;
-  end else if ( blink_cnt < ( 2 * half_period ) )
-    begin
-      ryg_reg <= off_reg;
-  end else 
-    blink_cnt <= 0;
-    
-endtask : blink;
+  grn_bln_cnt <= 0;
+  yel_bln_cnt <= 0;
+endtask : reset_cnts
 
 //-----------------------------------------------------------------------
 
 always_ff @( posedge clk_i )
   if ( !srst_i ) 
-    curr_state <= IDLED;
+    curr_state <= OFF_S;
   else
     curr_state <= next_state;
  
- 
-always_comb begin
-
-  if ( !cmd_valid_i )
-    next_state = curr_state;
-  else 
-    unique case ( cmd_type_i )
-      0 : 
-        begin
-          next_state = BASIC;
-        end
-		
-      1 : 
-        begin
-          next_state = IDLED;
-        end
-
-      2 : 
-        begin
-          next_state = UNREG;
-        end		
-		
-      3 : 
-        begin
-		      RYG_TIME [ 0 ] = cmd_data_i;
-          next_state = curr_state;
-        end
-
-      4 : 
-        begin
-          RYG_TIME [ 1 ] = cmd_data_i;
-          next_state = curr_state;
-        end
-
-      5 : 
-        begin
-          RYG_TIME [ 2 ] = cmd_data_i;
-          next_state = curr_state;
-        end
-	
-      default : 
-        begin
-          next_state = curr_state;		  
-        end
-
-  endcase
+always_ff @( posedge clk_i )
+  begin
+    
+    if ( !srst_i )
+      begin 
+        RYG_TIME  <= RYG_TIME_DEFAULTS;
+        light_cnt <= 0;
+        st_mode   <= 0;
+      end
+    else 
+      begin
+        light_cnt <= ( light_cnt < MAX_CNT ) ? ( light_cnt + 1 ) : 0;
+        if ( cmd_valid_i == 1 )
+          case ( cmd_type_i )
+            0, 1, 2 : 
+              begin 
+                light_cnt <= 0;
+                st_mode   <= cmd_type_i;
+              end
+            3 : RYG_TIME [ 0 ] <= cmd_data_i;
+            4 : RYG_TIME [ 1 ] <= cmd_data_i;
+            5 : RYG_TIME [ 2 ] <= cmd_data_i;
+        endcase   
+  end
 end
+ 
+always_comb 
+  begin
+    unique case ( st_mode )
+      1:
+        if ( light_cnt < RED_CNT )
+          next_state = RED_S;
+        else if ( light_cnt < RED_YEL_CNT )
+          next_state = RED_YEL_S;
+        else if ( light_cnt < GRN_CNT )
+          next_state = GRN_S;
+        else if ( light_cnt < GRN_BLN_CNT )
+          next_state = GRN_BLN_S;
+        else 
+          next_state = YEL_S;
+		  
+      0      : next_state = OFF_S;
+      2      : next_state = YEL_BLN_S;
+	  default: next_state = OFF_S;
+    endcase
+  end
  
  
 always_ff @( posedge clk_i )
   begin 
     if ( !srst_i ) 
-      begin
-        reset_cnts();
-    //    RYG_TIME <= RYG_TIME_DEFAULTS;
-    end
+      ryg_reg <= off_reg;
     else 
-      begin
-        if ( curr_state == IDLED )
+      unique case ( curr_state )
+        OFF_S     : ryg_reg <= off_reg;
+        RED_S     : ryg_reg <= red_reg;
+        YEL_S     : ryg_reg <= yel_reg;
+        GRN_S     : ryg_reg <= grn_reg;
+        RED_YEL_S : ryg_reg <= r_y_reg;
+        GRN_BLN_S : 
+          begin
+            grn_bln_cnt <= ( grn_bln_cnt < 2 * BLINK_HALF_PERIOD ) ? grn_bln_cnt + 1 : 0; 
+            ryg_reg     <= ( grn_bln_cnt <     BLINK_HALF_PERIOD ) ? grn_reg : off_reg;
+          end
+
+        YEL_BLN_S : 
+          begin
+            yel_bln_cnt <= ( yel_bln_cnt < 2 * BLINK_HALF_PERIOD ) ? yel_bln_cnt + 1 : 0; 
+            ryg_reg     <= ( yel_bln_cnt <     BLINK_HALF_PERIOD ) ? yel_reg : off_reg;
+          end
+	  
+        default : 
           begin
             ryg_reg <= off_reg;
-            reset_cnts();			
-        end
-		  
-        else if ( curr_state == BASIC )
-          begin
-            light_cnt <= light_cnt + 1;
-	          if ( light_cnt < num_of_clks( RYG_TIME [ 0 ] ) ) 
-              begin
-                ryg_reg <= red_reg;
-            end else if ( light_cnt < ( num_of_clks( RYG_TIME [ 0 ] ) + num_of_clks( RED_YELLOW_TIME ) ) )
-              begin
-                ryg_reg <= r_y_reg;
-            end else if ( light_cnt < ( num_of_clks( RYG_TIME [ 0 ] ) + num_of_clks( RED_YELLOW_TIME ) + 
-                                        num_of_clks( RYG_TIME [ 2 ] ) ) )
-              begin
-                ryg_reg <= grn_reg;
-            end else if ( light_cnt < ( num_of_clks( RYG_TIME [ 0 ] ) + num_of_clks( RED_YELLOW_TIME  ) + 
-                                        num_of_clks( RYG_TIME [ 2 ] ) + num_of_clks( GREEN_BLINK_TIME ) ) )
-              begin
-                blink ( grn_reg, num_of_clks( BLINK_HALF_PERIOD ) );
-            end else if ( light_cnt < ( num_of_clks( RYG_TIME [ 0 ] ) + num_of_clks( RED_YELLOW_TIME  ) + 
-                                        num_of_clks( RYG_TIME [ 2 ] ) + num_of_clks( GREEN_BLINK_TIME ) +  
-                                        num_of_clks( RYG_TIME [ 1 ] ) ) )
-              begin
-                ryg_reg <= yel_reg;
-            end else 
-              reset_cnts();
-                     
-        end
-			 
-        else if ( curr_state == UNREG )
-          begin
-            blink ( yel_reg, num_of_clks( BLINK_HALF_PERIOD ) );
-        end 
-
-        if ( next_state !== curr_state )
-          reset_cnts();
-		
-    end
-end 
+          end
+      endcase	
+    
+    if ( next_state !== curr_state )
+      reset_cnts();
+      
+  end 
+  
 
 endmodule 

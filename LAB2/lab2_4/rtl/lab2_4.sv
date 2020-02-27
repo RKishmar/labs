@@ -21,7 +21,7 @@
 module lab2_4 #( parameter DATA_WIDTH          = 16,
                  parameter CLK_I_FREQ          = 20_000_000,
                  parameter BLINK_HALF_PERIOD   = 1000,
-                 parameter GREEN_BLINKS_NUM    = 1000,
+                 parameter GREEN_BLINKS_NUM    = 10,
                  parameter RED_YELLOW_TIME     = 1000,
                  parameter RED_TIME_DEFAULT    = 1000,
                  parameter YELLOW_TIME_DEFAULT = 1000,
@@ -37,21 +37,29 @@ module lab2_4 #( parameter DATA_WIDTH          = 16,
   output logic                   green_o  
 );
 
-int                              blink_cnt = 0;
-int                              light_cnt = 0;
 
-localparam [ 2 : 0 ]             red_reg   = 3'b100;
-localparam [ 2 : 0 ]             yel_reg   = 3'b010;
-localparam [ 2 : 0 ]             grn_reg   = 3'b001;
-localparam [ 2 : 0 ]             r_y_reg   = 3'b110;
-localparam [ 2 : 0 ]             off_reg   = 3'b000;
+localparam [ 2 : 0 ]             OFF_MODE     = 0;
+localparam [ 2 : 0 ]             STD_MODE     = 1;
+localparam [ 2 : 0 ]             YEL_BLN_MODE = 2;
+localparam [ 2 : 0 ]             SET_GRN_DUR  = 3;
+localparam [ 2 : 0 ]             SET_RED_DUR  = 4;
+localparam [ 2 : 0 ]             SET_YEL_DUR  = 5;
 
-logic      [ 2 : 0 ]             ryg_reg   = off_reg;
-assign                           red_o     = ryg_reg [ 0 ];
-assign                           yellow_o  = ryg_reg [ 1 ];
-assign                           green_o   = ryg_reg [ 2 ];
+localparam [ 2 : 0 ]             RED          = 0;
+localparam [ 2 : 0 ]             YEL          = 1;
+localparam [ 2 : 0 ]             GRN          = 2;
 
-logic                            grn_bln_cnt, yel_bln_cnt;
+localparam [ 2 : 0 ]             red_reg      = 3'b100;
+localparam [ 2 : 0 ]             yel_reg      = 3'b010;
+localparam [ 2 : 0 ]             grn_reg      = 3'b001;
+localparam [ 2 : 0 ]             r_y_reg      = 3'b110;
+localparam [ 2 : 0 ]             off_reg      = 3'b000;
+
+logic      [ 2 : 0 ]             ryg_reg      = off_reg;
+assign                           red_o        = ryg_reg [ RED ];
+assign                           yellow_o     = ryg_reg [ YEL ];
+assign                           green_o      = ryg_reg [ GRN ];
+
 logic      [ 2 : 0 ]             st_mode;
 
 localparam                              GREEN_BLINK_TIME            = GREEN_BLINKS_NUM * BLINK_HALF_PERIOD * 2;
@@ -63,23 +71,30 @@ state_type curr_state, next_state;
 
 //-----------------------------------------------------------------------
 
-assign RED_CNT     = num_clks( RYG_TIME [ 0 ] );
-assign RED_YEL_CNT = num_clks( RYG_TIME [ 0 ] ) + num_clks( RED_YELLOW_TIME );
-assign GRN_CNT     = num_clks( RYG_TIME [ 0 ] ) + num_clks( RED_YELLOW_TIME ) + 
-                     num_clks( RYG_TIME [ 2 ] );
-assign GRN_BLN_CNT = num_clks( RYG_TIME [ 0 ] ) + num_clks( RED_YELLOW_TIME  ) + 
-                     num_clks( RYG_TIME [ 2 ] ) + num_clks( GREEN_BLINK_TIME );
-assign MAX_CNT     = num_clks( RYG_TIME [ 0 ] ) + num_clks( RED_YELLOW_TIME  ) + 
-                     num_clks( RYG_TIME [ 2 ] ) + num_clks( GREEN_BLINK_TIME ) +  
-                     num_clks( RYG_TIME [ 1 ] ); 
+logic [ 31 : 0 ]  RED_CNT_MAX, R_Y_CNT_MAX, GRN_CNT_MAX, GRN_BLN_CNT_MAX, MAX_CNT;
+
+assign RED_CNT_MAX     = num_clks( RYG_TIME [ RED ] );
+assign R_Y_CNT_MAX     = num_clks( RYG_TIME [ RED ] ) + num_clks( RED_YELLOW_TIME  );
+assign GRN_CNT_MAX     = num_clks( RYG_TIME [ RED ] ) + num_clks( RED_YELLOW_TIME  ) + 
+                         num_clks( RYG_TIME [ GRN ] );
+assign GRN_BLN_CNT_MAX = num_clks( RYG_TIME [ RED ] ) + num_clks( RED_YELLOW_TIME  ) + 
+                         num_clks( RYG_TIME [ GRN ] ) + num_clks( GREEN_BLINK_TIME );
+assign MAX_CNT         = num_clks( RYG_TIME [ RED ] ) + num_clks( RED_YELLOW_TIME  ) + 
+                         num_clks( RYG_TIME [ GRN ] ) + num_clks( GREEN_BLINK_TIME ) +  
+                         num_clks( RYG_TIME [ YEL ] ); 
+
+logic [ $size( MAX_CNT ) + 1 : 0 ] light_cnt   = 0;  
+logic [ $size( MAX_CNT ) + 1 : 0 ] yel_bln_cnt = 0;             
+logic [ $size( MAX_CNT ) + 1 : 0 ] grn_bln_cnt = 0; 
 
 //-----------------------------------------------------------------------
 
-function int num_clks ( int param );
+function int num_clks ( logic [ DATA_WIDTH - 1 : 0 ] param );
   return ( param * ( CLK_I_FREQ / 1000 ) ); 
 endfunction
 
 task reset_cnts ();
+
   $display( " " );
   $display( " DUT RESETS BLINK COUNTERS " );
   $display( " NEXT STATE:    %b ", next_state );
@@ -88,6 +103,7 @@ task reset_cnts ();
   
   grn_bln_cnt <= 0;
   yel_bln_cnt <= 0;
+  
 endtask : reset_cnts
 
 //-----------------------------------------------------------------------
@@ -112,14 +128,14 @@ always_ff @( posedge clk_i )
         light_cnt <= ( light_cnt < MAX_CNT ) ? ( light_cnt + 1 ) : 0;
         if ( cmd_valid_i == 1 )
           case ( cmd_type_i )
-            0, 1, 2 : 
+            OFF_MODE, STD_MODE, YEL_BLN_MODE : 
               begin 
                 light_cnt <= 0;
                 st_mode   <= cmd_type_i;
               end
-            3 : RYG_TIME [ 0 ] <= cmd_data_i;
-            4 : RYG_TIME [ 1 ] <= cmd_data_i;
-            5 : RYG_TIME [ 2 ] <= cmd_data_i;
+            SET_RED_DUR : RYG_TIME [ RED ] <= cmd_data_i;
+            SET_GRN_DUR : RYG_TIME [ GRN ] <= cmd_data_i;
+            SET_YEL_DUR : RYG_TIME [ YEL ] <= cmd_data_i;
         endcase   
   end
 end
@@ -127,21 +143,24 @@ end
 always_comb 
   begin
     unique case ( st_mode )
-      1:
-        if ( light_cnt < RED_CNT )
+    
+      STD_MODE:
+      
+        if ( light_cnt < RED_CNT_MAX )
           next_state = RED_S;
-        else if ( light_cnt < RED_YEL_CNT )
+        else if ( light_cnt < R_Y_CNT_MAX )
           next_state = RED_YEL_S;
-        else if ( light_cnt < GRN_CNT )
+        else if ( light_cnt < GRN_CNT_MAX )
           next_state = GRN_S;
-        else if ( light_cnt < GRN_BLN_CNT )
+        else if ( light_cnt < GRN_BLN_CNT_MAX )
           next_state = GRN_BLN_S;
         else 
           next_state = YEL_S;
 		  
-      0      : next_state = OFF_S;
-      2      : next_state = YEL_BLN_S;
-	  default: next_state = OFF_S;
+      OFF_MODE     : next_state = OFF_S;
+      YEL_BLN_MODE : next_state = YEL_BLN_S;
+      default      : next_state = OFF_S;
+      
     endcase
   end
  
@@ -169,7 +188,7 @@ always_ff @( posedge clk_i )
             ryg_reg     <= ( yel_bln_cnt <     BLINK_HALF_PERIOD ) ? yel_reg : off_reg;
           end
 	  
-        default : 
+        default  : 
           begin
             ryg_reg <= off_reg;
           end

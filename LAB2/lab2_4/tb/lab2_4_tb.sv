@@ -65,8 +65,8 @@ localparam [ 2 : 0 ] grn_reg      = 3'b001;
 localparam [ 2 : 0 ] r_y_reg      = 3'b110;
 localparam [ 2 : 0 ] off_reg      = 3'b000;
 
-localparam [ DATA_WIDTH_T - 1 : 0 ] RYG_TIME_DEFAULTS [ 2 : 0 ] = { RED_TIME_DFT, YLW_TIME_DFT, GRN_TIME_DFT };
-logic      [ DATA_WIDTH_T - 1 : 0 ] RYG_TIME          [ 2 : 0 ] = RYG_TIME_DEFAULTS;
+localparam logic [ DATA_WIDTH_T - 1 : 0 ] RYG_TIME_DEFAULTS [ 2 : 0 ] = '{ RED_TIME_DFT, YLW_TIME_DFT, GRN_TIME_DFT };
+           logic [ DATA_WIDTH_T - 1 : 0 ] RYG_TIME          [ 2 : 0 ] = RYG_TIME_DEFAULTS;
 
 logic                          clk_t;
 logic                          srst_t;
@@ -163,8 +163,7 @@ task receiver_tsk( input mailbox #( transaction ) mbx );
         rcv_end = 0;	  
         
         mbx.get( trn );
-        change_mode_if_valid ( trn );
-        		
+        change_mode_if_valid ( trn );       		
       end 
  
     set_lights   ( );

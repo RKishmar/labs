@@ -73,8 +73,8 @@ state_type curr_state = OFF_S, next_state = OFF_S;
 //-----------------------------------------------------------------------
 
 localparam                        GREEN_BLINK_TIME            = GREEN_BLINKS_NUM * BLINK_HALF_PERIOD * 2;
-localparam [ DATA_WIDTH - 1 : 0 ] RYG_TIME_DEFAULTS [ 2 : 0 ] = { RED_TIME_DEFAULT, YELLOW_TIME_DEFAULT, GREEN_TIME_DEFAULT };
-logic      [ DATA_WIDTH - 1 : 0 ] RYG_TIME          [ 2 : 0 ] = RYG_TIME_DEFAULTS;
+localparam logic  [ DATA_WIDTH - 1 : 0 ] RYG_TIME_DEFAULTS [ 2 : 0 ] = '{ RED_TIME_DEFAULT, YELLOW_TIME_DEFAULT, GREEN_TIME_DEFAULT };
+           logic  [ DATA_WIDTH - 1 : 0 ] RYG_TIME          [ 2 : 0 ] = RYG_TIME_DEFAULTS;  // seems unnecessary
 
 logic [ 31 : 0 ]  RED_CNT_MAX, R_Y_CNT_MAX, GRN_CNT_MAX, GRN_BLN_CNT_MAX, MAX_CNT, YEL_CNT_MAX;
 
@@ -101,7 +101,7 @@ task reset_cnts ();
     $display( " DUT RESETS COUNTERS " );
     grn_bln_cnt <= 0;
     yel_bln_cnt <= 0;
-	light_cnt   <= 0;
+    light_cnt   <= 0;
   end  
 endtask : reset_cnts
 
@@ -171,7 +171,7 @@ always_ff @( posedge clk_i )
             begin
               ryg_reg     <= ( grn_bln_cnt < (     BLINK_HALF_PERIOD * CLK_MS_NUM ) ) ? grn_reg : off_reg;
               grn_bln_cnt <= ( grn_bln_cnt < ( 2 * BLINK_HALF_PERIOD * CLK_MS_NUM ) ) ? ( grn_bln_cnt + 1 ) : 0; 
-			  $display ( " DUT grn_bln_cnt :   %0d ", grn_bln_cnt );
+              $display ( " DUT grn_bln_cnt :   %0d ", grn_bln_cnt );
             end
 
           YEL_BLN_S : 
@@ -193,10 +193,10 @@ always_ff @( posedge clk_i )
           begin 
             reset_cnts();
           end
-		else 
+        else 
           begin
             light_cnt <= light_cnt + 1;
-			$display( " DUT light_cnt :     %0d ", light_cnt );
+            $display( " DUT light_cnt :     %0d ", light_cnt );
           end
     
       end

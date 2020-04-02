@@ -72,7 +72,7 @@ state_type curr_state = OFF_S, next_state = OFF_S;
 
 //-----------------------------------------------------------------------
 
-localparam                        GREEN_BLINK_TIME            = GREEN_BLINKS_NUM * BLINK_HALF_PERIOD * 2;
+localparam                               GREEN_BLINK_TIME            = GREEN_BLINKS_NUM * BLINK_HALF_PERIOD * 2;
 localparam logic  [ DATA_WIDTH - 1 : 0 ] RYG_TIME_DEFAULTS [ 2 : 0 ] = '{ RED_TIME_DEFAULT, YELLOW_TIME_DEFAULT, GREEN_TIME_DEFAULT };
            logic  [ DATA_WIDTH - 1 : 0 ] RYG_TIME          [ 2 : 0 ] = RYG_TIME_DEFAULTS;  // seems unnecessary
 
@@ -169,15 +169,15 @@ always_ff @( posedge clk_i )
           RED_YEL_S : ryg_reg <= r_y_reg;
           GRN_BLN_S : 
             begin
-              ryg_reg     <= ( grn_bln_cnt < (     BLINK_HALF_PERIOD * CLK_MS_NUM ) ) ? grn_reg : off_reg;
-              grn_bln_cnt <= ( grn_bln_cnt < ( 2 * BLINK_HALF_PERIOD * CLK_MS_NUM ) ) ? ( grn_bln_cnt + 1 ) : 0; 
+              ryg_reg     <= ( grn_bln_cnt < (     BLINK_HALF_PERIOD * CLK_MS_NUM     ) ) ? grn_reg : off_reg;
+              grn_bln_cnt <= ( grn_bln_cnt < ( 2 * BLINK_HALF_PERIOD * CLK_MS_NUM - 1 ) ) ? ( grn_bln_cnt + 1 ) : 0; 
               $display ( " DUT grn_bln_cnt :   %0d ", grn_bln_cnt );
             end
 
           YEL_BLN_S : 
             begin
-              ryg_reg     <= ( yel_bln_cnt < (     BLINK_HALF_PERIOD * CLK_MS_NUM ) ) ? yel_reg : off_reg;
-              yel_bln_cnt <= ( yel_bln_cnt < ( 2 * BLINK_HALF_PERIOD * CLK_MS_NUM ) ) ? ( yel_bln_cnt + 1 ) : 0; 
+              ryg_reg     <= ( yel_bln_cnt < (     BLINK_HALF_PERIOD * CLK_MS_NUM     ) ) ? yel_reg : off_reg;
+              yel_bln_cnt <= ( yel_bln_cnt < ( 2 * BLINK_HALF_PERIOD * CLK_MS_NUM - 1 ) ) ? ( yel_bln_cnt + 1 ) : 0; 
               $display( " DUT yel_bln_cnt : %0d ", yel_bln_cnt );
             end
 	  

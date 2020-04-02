@@ -84,7 +84,7 @@ int                            errors, test_num;
 bit                            rcv_end, trm_end;
 
 static logic [ DATA_WIDTH_T + 15 : 0 ] std_cnt, ybl_cnt, gbl_cnt; 
-static logic [ 2 : 0 ]                 mode_t, curr_mode;
+static logic [ 2 : 0 ]                 mode_t, prev_mode;
 
 //-----------------------------------------------------------------------
 
@@ -166,25 +166,18 @@ task receiver_tsk( input mailbox #( transaction ) mbx );
         change_mode_if_valid ( trn );       		
       end 
  
-    set_lights   ( );
-    set_counters ( trn );
-	
-    if ( ryg_reg !== ryg_reg_t ) 
-      report_error();
-    else
-      report_success();
+    set_lights    ();
+    set_counters  ( trn );
+	verify_result ();
 
-    if ( test_num == TEST_LENGTH )  
-      summary_tsk();
-	  
   end
 endtask : receiver_tsk
 
 
 task automatic set_lights ( );
   begin
-    grn_bln = ( gbl_cnt <= BLINK_PERIOD / 2 ) ?  grn_reg : off_reg;
-    yel_bln = ( ybl_cnt <= BLINK_PERIOD / 2 ) ?  yel_reg : off_reg;   
+    grn_bln = ( gbl_cnt < BLINK_PERIOD / 2 ) ?  grn_reg : off_reg;
+    yel_bln = ( ybl_cnt < BLINK_PERIOD / 2 ) ?  yel_reg : off_reg;   
     unique case ( mode_t ) 
       OFF_MODE:
         begin $display( " TB MODE : OFF_MODE " );
@@ -213,15 +206,15 @@ task automatic set_counters ( transaction sc_trn );
   begin
     if ( mode_t == STD_MODE ) 
       begin
-        std_cnt = ( std_cnt <= MAX_CNT ) ? ( std_cnt + 1 ) : 0;
-        if ( ( std_cnt <= GRN_BLN_CNT_MAX ) & ( std_cnt >= GRN_CNT_MAX ) ) 
+        std_cnt = ( std_cnt < MAX_CNT ) ? ( std_cnt + 1 ) : 0;
+        if ( ( std_cnt < GRN_BLN_CNT_MAX ) & ( std_cnt > GRN_CNT_MAX ) ) 
           gbl_cnt = ( gbl_cnt < BLINK_PERIOD ) ? ( gbl_cnt + 1 ) : 0;
       end
     else if ( mode_t == YEL_BLN_MODE )
       begin
         ybl_cnt   = ( ybl_cnt < BLINK_PERIOD ) ? ( ybl_cnt + 1 ) : 0;   
       end	 
-	
+
     if ( cnt == 0 )
       begin
         cnt = sc_trn.test_duration_tr; 
@@ -244,7 +237,7 @@ task automatic change_mode_if_valid ( transaction chm_trn );
     begin  
       if ( val == 1 )
         begin 
-          curr_mode = mode_t;		
+          prev_mode = mode_t;		
           unique case ( comm ) 
             OFF_MODE    : mode_t = OFF_MODE;
             STD_MODE    : mode_t = STD_MODE;	
@@ -261,6 +254,17 @@ endtask : change_mode_if_valid
 
 //======================================================================================
 
+task automatic verify_result ();
+  begin
+    if ( ryg_reg !== ryg_reg_t ) 
+      report_error();
+    else
+      report_success();
+    if ( test_num == TEST_LENGTH )  
+      summary_tsk();  
+  end
+endtask : verify_result 
+  
 
 task automatic report_error ();
   begin
@@ -269,7 +273,8 @@ task automatic report_error ();
     $display( " -  Error test  # %0d ",                   test_num  );
     $display( "    traffic light ryg_reg expected : %b ", ryg_reg_t );
     $display( "    traffic light ryg_reg actual   : %b ", ryg_reg   ); 
-	  
+    $display( "    TB blink counters g/y          : %0d / %0d ", gbl_cnt, ybl_cnt   );	 
+    $display( "    TB STD counter                 : %0d ", std_cnt );	
     $stop;
   end
 endtask : report_error
@@ -330,7 +335,7 @@ DUT
     ybl_cnt   = 0; 
     gbl_cnt   = 0; 
     mode_t    = 0;
-    curr_mode = mode_t;
+    prev_mode = mode_t;
     errors    = 0;
     test_num  = 0;
     rcv_end   = 0; 

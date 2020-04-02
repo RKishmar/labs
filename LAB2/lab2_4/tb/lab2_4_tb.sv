@@ -216,11 +216,11 @@ task automatic set_counters ( transaction sc_trn );
       begin
         std_cnt = ( std_cnt <= MAX_CNT ) ? ( std_cnt + 1 ) : 0;
         if ( ( std_cnt <= GRN_BLN_CNT_MAX ) & ( std_cnt >= GRN_CNT_MAX ) ) 
-          gbl_cnt = ( gbl_cnt <= BLINK_PERIOD ) ? ( gbl_cnt + 1 ) : 0;
+          gbl_cnt = ( gbl_cnt < BLINK_PERIOD ) ? ( gbl_cnt + 1 ) : 0;
       end
     else if ( mode_t == YEL_BLN_MODE )
       begin
-        ybl_cnt   = ( ybl_cnt <= BLINK_PERIOD ) ? ( ybl_cnt + 1 ) : 0;   
+        ybl_cnt   = ( ybl_cnt < BLINK_PERIOD ) ? ( ybl_cnt + 1 ) : 0;   
       end	 
 	
     if ( cnt == 0 )

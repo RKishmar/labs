@@ -22,7 +22,40 @@
      Время нахождения в состоянии “красный+желтый” равно и задается статически параметром в ms.
      Время нахождения в остальных состояниях может быть настроено динамически в ms. Для настроек исп. шину cmd_i, с кодами команд.
 
-     
+last known issues
+====================================================== 
+#  +  TEST SUCCESS, trafic light ryg_reg: 010 
+#  TB cnt :            667
+#  TB MODE : STD_MODE, 11200 / 2000 / 3200 / 5200 / 10000  
+#  DUT light_cnt :     1 
+#  
+#  -  Error test  # 3 
+#     traffic light ryg_reg expected : 010 
+#     traffic light ryg_reg actual   : 100 
+#     TB blink counters g/y          : 794 / 0 
+#     TB STD counter                 : 0 
+======================================================
+#  DUT RESETS COUNTERS 
+#  
+#  +  TEST SUCCESS, trafic light ryg_reg: 100 
+#  TB cnt :            10003
+#  TB MODE : STD_MODE, 1996 / 2000 / 3200 / 5100 / 9900  
+#  DUT light_cnt :     0 
+#  
+#  +  TEST SUCCESS, trafic light ryg_reg: 100 
+#  TB cnt :            10002
+#  TB MODE : STD_MODE, 1997 / 2000 / 3200 / 5100 / 9900  
+#  DUT light_cnt :     1 
+#  
+#  -  Error test  # 4 
+#     traffic light ryg_reg expected : 100 
+#     traffic light ryg_reg actual   : 110 
+#     TB blink counters g/y          : 794 / 0 
+#     TB STD counter                 : 1998 
+=======================================================
+
+
+ 
 */
 
 
@@ -55,9 +88,9 @@ localparam [ 2 : 0 ] SET_GRN_DUR  = 3;
 localparam [ 2 : 0 ] SET_RED_DUR  = 4;
 localparam [ 2 : 0 ] SET_YEL_DUR  = 5;
 
-localparam [ 2 : 0 ] RED          = 0;
+localparam [ 2 : 0 ] GRN          = 0;
 localparam [ 2 : 0 ] YEL          = 1;
-localparam [ 2 : 0 ] GRN          = 2;
+localparam [ 2 : 0 ] RED          = 2;
 
 localparam [ 2 : 0 ] red_reg      = 3'b100;
 localparam [ 2 : 0 ] yel_reg      = 3'b010;
@@ -74,7 +107,7 @@ logic [ 2 : 0 ]                cmd_type_t;
 logic                          cmd_valid_t;  
 logic [ DATA_WIDTH_T - 1 : 0 ] cmd_data_t;
 
-logic [ 2 : 0 ]                ryg_reg  ;
+logic [ 2 : 0 ]                ryg_reg, prev_ryg_reg;
 logic [ 2 : 0 ]                grn_bln  ;
 logic [ 2 : 0 ]                yel_bln  ;
 logic [ 2 : 0 ]                ryg_reg_t;
@@ -84,7 +117,7 @@ int                            errors, test_num;
 bit                            rcv_end, trm_end;
 
 static logic [ DATA_WIDTH_T + 15 : 0 ] std_cnt, ybl_cnt, gbl_cnt; 
-static logic [ 2 : 0 ]                 mode_t, prev_mode;
+static logic [ 2 : 0 ]                 mode_t;
 
 //-----------------------------------------------------------------------
 
@@ -112,9 +145,9 @@ class transaction;
   
   function void randomizes ();
     process::self.srandom( $realtime ); 
-    cmd_data_tr  = $urandom_range( MAX_DATA_RND, MIN_DATA_RND );
-    cmd_valid_tr = $urandom_range( 0, 1 );
-    cmd_type_tr  = $urandom_range( 0, 5 );	
+    cmd_data_tr       = $urandom_range( MAX_DATA_RND, MIN_DATA_RND );
+    cmd_valid_tr      = $urandom_range( 0, 1 );
+    cmd_type_tr       = $urandom_range( 0, 5 );	
     test_duration_tr  = $urandom_range( MAX_DURN_RND, MIN_DURN_RND );
   endfunction
   
@@ -146,7 +179,6 @@ task transmit_tsk( input int unsigned n,
     #1; //wait ( !rcv_end );
 	
   end
-
 endtask : transmit_tsk
 
 //---------------------------------------------------------------------------- 
@@ -165,11 +197,9 @@ task receiver_tsk( input mailbox #( transaction ) mbx );
         mbx.get( trn );
         change_mode_if_valid ( trn );       		
       end 
- 
     set_lights    ();
     set_counters  ( trn );
 	verify_result ();
-
   end
 endtask : receiver_tsk
 
@@ -177,7 +207,8 @@ endtask : receiver_tsk
 task automatic set_lights ( );
   begin
     grn_bln = ( gbl_cnt < BLINK_PERIOD / 2 ) ?  grn_reg : off_reg;
-    yel_bln = ( ybl_cnt < BLINK_PERIOD / 2 ) ?  yel_reg : off_reg;   
+    yel_bln = ( ybl_cnt < BLINK_PERIOD / 2 ) ?  yel_reg : off_reg;
+    prev_ryg_reg = ryg_reg_t;	
     unique case ( mode_t ) 
       OFF_MODE:
         begin $display( " TB MODE : OFF_MODE " );
@@ -185,11 +216,11 @@ task automatic set_lights ( );
         end
       STD_MODE:
         begin $display( " TB MODE : STD_MODE, %0d / %0d / %0d / %0d / %0d  ", std_cnt, RED_CNT_MAX, R_Y_CNT_MAX, GRN_CNT_MAX, GRN_BLN_CNT_MAX );
-          if      ( std_cnt <= RED_CNT_MAX       ) begin ryg_reg_t = red_reg; end
-          else if ( std_cnt <= R_Y_CNT_MAX       ) begin ryg_reg_t = r_y_reg; end
-          else if ( std_cnt <= GRN_CNT_MAX       ) begin ryg_reg_t = grn_reg; end
-          else if ( std_cnt <= GRN_BLN_CNT_MAX   ) begin ryg_reg_t = grn_bln; end
-          else                                     begin ryg_reg_t = yel_reg; end
+          if      ( std_cnt < RED_CNT_MAX       ) ryg_reg_t = red_reg; 
+          else if ( std_cnt < R_Y_CNT_MAX       ) ryg_reg_t = r_y_reg; 
+          else if ( std_cnt < GRN_CNT_MAX       ) ryg_reg_t = grn_reg; 
+          else if ( std_cnt < GRN_BLN_CNT_MAX   ) ryg_reg_t = grn_bln; 
+          else                                    ryg_reg_t = yel_reg; 
         end
       YEL_BLN_MODE:
         begin $display( " TB MODE : YEL_BLN_MODE, %0d ", ybl_cnt );
@@ -207,14 +238,14 @@ task automatic set_counters ( transaction sc_trn );
     if ( mode_t == STD_MODE ) 
       begin
         std_cnt = ( std_cnt < MAX_CNT ) ? ( std_cnt + 1 ) : 0;
-        if ( ( std_cnt < GRN_BLN_CNT_MAX ) & ( std_cnt > GRN_CNT_MAX ) ) 
+        if ( ( std_cnt < GRN_BLN_CNT_MAX ) & ( std_cnt >= GRN_CNT_MAX ) ) 
           gbl_cnt = ( gbl_cnt < BLINK_PERIOD ) ? ( gbl_cnt + 1 ) : 0;
       end
     else if ( mode_t == YEL_BLN_MODE )
       begin
-        ybl_cnt   = ( ybl_cnt < BLINK_PERIOD ) ? ( ybl_cnt + 1 ) : 0;   
+        ybl_cnt = ( ybl_cnt < BLINK_PERIOD ) ? ( ybl_cnt + 1 ) : 0;   
       end	 
-
+  
     if ( cnt == 0 )
       begin
         cnt = sc_trn.test_duration_tr; 
@@ -236,12 +267,23 @@ task automatic change_mode_if_valid ( transaction chm_trn );
   automatic bit [ DATA_WIDTH_T - 1 : 0 ] data = chm_trn.cmd_data_tr;
     begin  
       if ( val == 1 )
-        begin 
-          prev_mode = mode_t;		
+        begin 		
           unique case ( comm ) 
-            OFF_MODE    : mode_t = OFF_MODE;
-            STD_MODE    : mode_t = STD_MODE;	
-            YEL_BLN_MODE: mode_t = YEL_BLN_MODE;
+            OFF_MODE    : 
+              begin
+                @( posedge clk_t ); 
+                mode_t = OFF_MODE;
+              end
+            STD_MODE    : 
+              begin
+                @( posedge clk_t ); 
+                mode_t = STD_MODE; 
+              end
+            YEL_BLN_MODE: 
+              begin
+                @( posedge clk_t ); 
+                mode_t = YEL_BLN_MODE;
+              end
 			
             SET_GRN_DUR : RYG_TIME [ GRN ] = data;
             SET_RED_DUR : RYG_TIME [ RED ] = data;                 
@@ -329,13 +371,13 @@ DUT
   end
 
   initial begin
-    ryg_reg_t = off_reg;
+    ryg_reg_t    = off_reg;
+	prev_ryg_reg = ryg_reg_t;
     cnt       = 0; 
     std_cnt   = 0; 
     ybl_cnt   = 0; 
     gbl_cnt   = 0; 
     mode_t    = 0;
-    prev_mode = mode_t;
     errors    = 0;
     test_num  = 0;
     rcv_end   = 0; 

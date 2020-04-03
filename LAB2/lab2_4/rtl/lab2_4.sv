@@ -50,9 +50,9 @@ localparam [ 2 : 0 ]             SET_GRN_DUR  = 3;
 localparam [ 2 : 0 ]             SET_RED_DUR  = 4;
 localparam [ 2 : 0 ]             SET_YEL_DUR  = 5;
 
-localparam [ 2 : 0 ]             RED          = 0;
+localparam [ 2 : 0 ]             GRN          = 0;
 localparam [ 2 : 0 ]             YEL          = 1;
-localparam [ 2 : 0 ]             GRN          = 2;
+localparam [ 2 : 0 ]             RED          = 2;
 
 localparam [ 2 : 0 ]             red_reg      = 3'b100;
 localparam [ 2 : 0 ]             yel_reg      = 3'b010;
@@ -169,15 +169,15 @@ always_ff @( posedge clk_i )
           RED_YEL_S : ryg_reg <= r_y_reg;
           GRN_BLN_S : 
             begin
-              ryg_reg     <= ( grn_bln_cnt < (     BLINK_HALF_PERIOD * CLK_MS_NUM     ) ) ? grn_reg : off_reg;
-              grn_bln_cnt <= ( grn_bln_cnt < ( 2 * BLINK_HALF_PERIOD * CLK_MS_NUM - 1 ) ) ? ( grn_bln_cnt + 1 ) : 0; 
+              ryg_reg     <= ( grn_bln_cnt < (     BLINK_HALF_PERIOD * CLK_MS_NUM ) ) ? grn_reg : off_reg;
+              grn_bln_cnt <= ( grn_bln_cnt < ( 2 * BLINK_HALF_PERIOD * CLK_MS_NUM ) ) ? ( grn_bln_cnt + 1 ) : 0; 
               $display ( " DUT grn_bln_cnt :   %0d ", grn_bln_cnt );
             end
 
           YEL_BLN_S : 
             begin
-              ryg_reg     <= ( yel_bln_cnt < (     BLINK_HALF_PERIOD * CLK_MS_NUM     ) ) ? yel_reg : off_reg;
-              yel_bln_cnt <= ( yel_bln_cnt < ( 2 * BLINK_HALF_PERIOD * CLK_MS_NUM - 1 ) ) ? ( yel_bln_cnt + 1 ) : 0; 
+              ryg_reg     <= ( yel_bln_cnt < (     BLINK_HALF_PERIOD * CLK_MS_NUM ) ) ? yel_reg : off_reg;
+              yel_bln_cnt <= ( yel_bln_cnt < ( 2 * BLINK_HALF_PERIOD * CLK_MS_NUM ) ) ? ( yel_bln_cnt + 1 ) : 0; 
               $display( " DUT yel_bln_cnt : %0d ", yel_bln_cnt );
             end
 	  

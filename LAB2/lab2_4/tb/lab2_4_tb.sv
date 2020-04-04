@@ -238,13 +238,20 @@ task automatic set_counters ( transaction sc_trn );
     if ( mode_t == STD_MODE ) 
       begin
         std_cnt = ( std_cnt < MAX_CNT ) ? ( std_cnt + 1 ) : 0;
-        if ( ( std_cnt < GRN_BLN_CNT_MAX ) & ( std_cnt >= GRN_CNT_MAX ) ) 
-          gbl_cnt = ( gbl_cnt < BLINK_PERIOD ) ? ( gbl_cnt + 1 ) : 0;
+        if ( ( std_cnt < GRN_BLN_CNT_MAX ) & ( std_cnt > GRN_CNT_MAX ) )
+          begin		
+            gbl_cnt = ( gbl_cnt < BLINK_PERIOD ) ? ( gbl_cnt + 1 ) : 0;
+          end
+        else 
+          reset_counters ( 3'b011 ); // reset ybl_cnt and gbl_cnt
       end
     else if ( mode_t == YEL_BLN_MODE )
       begin
+        reset_counters ( 3'b110 ); // reset std_cnt and gbl_cnt
         ybl_cnt = ( ybl_cnt < BLINK_PERIOD ) ? ( ybl_cnt + 1 ) : 0;   
-      end	 
+      end
+    else if ( mode_t == OFF_MODE )
+      reset_counters ( 3'b111 ); // reset all cnts	
   
     if ( cnt == 0 )
       begin
@@ -258,6 +265,15 @@ task automatic set_counters ( transaction sc_trn );
       end	
   end
 endtask : set_counters
+
+
+task automatic reset_counters ( bit [ 2 : 0 ] std_gbl_ybl );
+  begin
+    if ( std_gbl_ybl [ 0 ] == 1 ) ybl_cnt = 1;
+    if ( std_gbl_ybl [ 1 ] == 1 ) gbl_cnt = 0;
+    if ( std_gbl_ybl [ 2 ] == 1 ) std_cnt = 0;
+  end
+endtask : reset_counters
 
 //========================================================================================================
 

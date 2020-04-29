@@ -118,6 +118,7 @@ bit                            rcv_end, trm_end;
 
 static logic [ DATA_WIDTH_T + 15 : 0 ] std_cnt, ybl_cnt, gbl_cnt; 
 static logic [ 2 : 0 ]                 mode_t;
+static int                             test_duration;
 
 //-----------------------------------------------------------------------
 
@@ -188,18 +189,16 @@ task receiver_tsk( input mailbox #( transaction ) mbx );
   
   forever begin
     $display( " TB cnt :            %0d", cnt );
-    if ( cnt == 0 ) 
-      begin 
+    if ( cnt == 0 )
+      begin
         rcv_end = 1;
         wait ( trm_end );
-        rcv_end = 0;	  
-        
+        rcv_end = 0;
         mbx.get( trn );
-        change_mode_if_valid ( trn );       		
-      end 
-    set_lights    ();
-    set_counters  ( trn );
-	verify_result ();
+        change_mode_if_valid ( trn );
+      end
+    verify_result ();
+    @( posedge clk_t );
   end
 endtask : receiver_tsk
 
@@ -233,11 +232,11 @@ endtask : set_lights
 
 //=========================================================================================================
 
-task automatic set_counters ( transaction sc_trn );
+task automatic counters ( );
   begin
     if ( mode_t == STD_MODE ) 
       begin
-        std_cnt = ( std_cnt < MAX_CNT ) ? ( std_cnt + 1 ) : 0;
+        std_cnt = ( std_cnt < ( MAX_CNT - 1 ) ) ? ( std_cnt + 1 ) : 0;
         if ( ( std_cnt < GRN_BLN_CNT_MAX ) & ( std_cnt > GRN_CNT_MAX ) )
           begin		
             gbl_cnt = ( gbl_cnt < BLINK_PERIOD ) ? ( gbl_cnt + 1 ) : 0;
@@ -255,21 +254,19 @@ task automatic set_counters ( transaction sc_trn );
   
     if ( cnt == 0 )
       begin
-        cnt = sc_trn.test_duration_tr; 
-        @( posedge clk_t ); @( posedge clk_t ); @( posedge clk_t );
+        cnt = test_duration; 
       end
     else 
       begin
         cnt = cnt - 1;
-        @( posedge clk_t );
       end	
   end
-endtask : set_counters
+endtask : counters
 
 
 task automatic reset_counters ( bit [ 2 : 0 ] std_gbl_ybl );
   begin
-    if ( std_gbl_ybl [ 0 ] == 1 ) ybl_cnt = 1;
+    if ( std_gbl_ybl [ 0 ] == 1 ) ybl_cnt = 0;
     if ( std_gbl_ybl [ 1 ] == 1 ) gbl_cnt = 0;
     if ( std_gbl_ybl [ 2 ] == 1 ) std_cnt = 0;
   end
@@ -287,25 +284,36 @@ task automatic change_mode_if_valid ( transaction chm_trn );
           unique case ( comm ) 
             OFF_MODE    : 
               begin
-                @( posedge clk_t ); 
+                repeat( 3 ) @( posedge clk_t );
                 mode_t = OFF_MODE;
               end
             STD_MODE    : 
               begin
-                @( posedge clk_t ); 
+                repeat( 3 ) @( posedge clk_t );
                 mode_t = STD_MODE; 
               end
             YEL_BLN_MODE: 
               begin
-                @( posedge clk_t ); 
+                repeat( 3 ) @( posedge clk_t );
                 mode_t = YEL_BLN_MODE;
               end
-			
-            SET_GRN_DUR : RYG_TIME [ GRN ] = data;
-            SET_RED_DUR : RYG_TIME [ RED ] = data;                 
-            SET_YEL_DUR : RYG_TIME [ YEL ] = data;                  
+            SET_GRN_DUR :
+              begin
+                @( posedge clk_t );
+               RYG_TIME [ GRN ] = data;
+             end
+            SET_RED_DUR :
+              begin
+                @( posedge clk_t );
+                RYG_TIME [ RED ] = data;
+              end
+            SET_YEL_DUR :
+              begin
+                @( posedge clk_t );
+                RYG_TIME [ YEL ] = data;
+              end
           endcase
-        end	
+        end
   end
 endtask : change_mode_if_valid
 
@@ -409,6 +417,16 @@ DUT
     fork 
       transmit_tsk ( TEST_LENGTH, mbx );
       receiver_tsk ( mbx );
+      forever
+        begin
+          @( posedge clk_t );
+          counters();
+        end
+      forever
+        begin
+          @( posedge clk_t );
+          set_lights();
+        end
     join
     
   end  

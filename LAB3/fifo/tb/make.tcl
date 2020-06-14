@@ -2,11 +2,13 @@ vlib work
 
 quit -sim
 
-vlog -sv  ../rtl/fifo.sv
-vlog -sv  fifo_tb.sv
-
+vlog     q_scfifo.v
+vlog -sv ../rtl/fifo.sv
+vlog -sv fifo_tb.sv
 vlog -work work -refresh
-vsim -novopt fifo_tb
+
+vsim -novopt work.fifo_tb -L altera_mf_ver 
+
 add wave -hex -r fifo_tb/*
 
 run -all

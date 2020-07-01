@@ -22,6 +22,7 @@ logic [ DWIDTH - 1 : 0 ] fifo_mem [ FIFO_SIZE - 1 : 0 ];
 logic                    almost_full;
 logic                    almost_empty;
 logic                    empty_sha;
+logic                    rd_started;
 
 
 always_ff @ ( posedge clk_i )
@@ -29,6 +30,7 @@ always_ff @ ( posedge clk_i )
     if ( !srst_i )
       begin
         wr_adr <= 0;
+        fifo_mem [ 0 ] <= 0;
       end
     else 
       begin         
@@ -47,14 +49,25 @@ always_ff @ ( posedge clk_i )
       begin
         rd_adr <= 0;
         q_o    <= 0;
+        rd_started <= 0;
       end
     else 
       begin 
-        if ( rd_req_i ) 
+        if ( SHOWAHEAD ) 
           begin
-            q_o <= fifo_mem [ rd_adr ];
-            rd_adr <= rd_adr + 1;    
+            q_o <= fifo_mem [ rd_adr ];          
+            if ( rd_req_i && ( usedw_o !== 1 ) ) 
+              q_o <= ( rd_adr == '1 ) ? fifo_mem [ 0 ] : fifo_mem [ rd_adr + 1 ];            
+            else if ( ( usedw_o == 0 ) && ( rd_started == 1 ) && !full_o ) 
+              q_o <= fifo_mem [ rd_adr - 1 ]; 
+          end          
+        else 
+          begin
+            if ( rd_req_i ) q_o <= fifo_mem [ rd_adr ];
           end
+          
+        if ( rd_req_i ) rd_adr <= rd_adr + 1;        
+        if ( rd_req_i ) rd_started <= 1;
       end
   end
 

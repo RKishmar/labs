@@ -36,7 +36,7 @@
 // synopsys translate_off
 `timescale 1 ps / 1 ps
 // synopsys translate_on
-module q_scfifo (
+module q_scfifo #( parameter SHOWAHEAD ) (
     clock,
     data,
     rdreq,
@@ -78,11 +78,14 @@ module q_scfifo (
                 .almost_full (),
                 .eccstatus (),
                 .sclr ());
+
+localparam SHOWAHEAD_ON_OFF_PARAM = ( SHOWAHEAD ) ? "ON" : "OFF";
+				
     defparam
         scfifo_component.add_ram_output_register = "OFF",
         scfifo_component.intended_device_family  = "Cyclone V",
         scfifo_component.lpm_numwords            = 256,
-        scfifo_component.lpm_showahead           = "ON",
+        scfifo_component.lpm_showahead           = SHOWAHEAD_ON_OFF_PARAM,
         scfifo_component.lpm_type                = "scfifo",
         scfifo_component.lpm_width               = 8,
         scfifo_component.lpm_widthu              = 8,

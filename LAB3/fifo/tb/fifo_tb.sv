@@ -1,14 +1,12 @@
 `timescale 10ns / 10ns
 
-`define KISHMAR_FIFO; // INTEL_FIFO // KISHMAR_FIFO
-
 module fifo_tb;
-  localparam                      SHOWAHEAD_TB    = 1; // change Intell's fifo parameter manually ( q_scfifo.scfifo_component.lpm_showahead )
+  localparam                      SHOWAHEAD_TB    = 0; 
   
   localparam                      DATA_WIDTH_TB   = 8;
   localparam                      ADRS_WIDTH_TB   = 8; 
   
-  localparam                      TEST_ITERS      = 100000;
+  localparam                      TEST_ITERS      = 22222;
   localparam                      CLK_HLF_PER     = 2;
  
   localparam                      FIFO_SIZE       = 2 ** ADRS_WIDTH_TB;
@@ -22,25 +20,28 @@ module fifo_tb;
   
   logic                           clk_tb;
   logic                           srst_tb;      // synchronous 
-  
+  logic                           rd_req_tb;  
   logic                           wr_req_tb;
   logic [ DATA_WIDTH_TB - 1 : 0 ] wr_dat_tb;
   
-  logic                           rd_req_tb;  
-  logic [ DATA_WIDTH_TB - 1 : 0 ] rd_dat_tb;
-  
-  logic [ ADRS_WIDTH_TB - 1 : 0 ] usedw_tb;    // read data word
-  bit                             empty_tb;
-  bit                             full_tb;     // number of used words in fifo 
+  logic [ DATA_WIDTH_TB - 1 : 0 ] rd_dat_tb_kis;
+  logic [ ADRS_WIDTH_TB - 1 : 0 ] usedw_tb_kis;    
+  bit                             empty_tb_kis;
+  bit                             full_tb_kis;     
 
+  logic [ DATA_WIDTH_TB - 1 : 0 ] rd_dat_tb_int;
+  logic [ ADRS_WIDTH_TB - 1 : 0 ] usedw_tb_int;    
+  bit                             empty_tb_int;
+  bit                             full_tb_int;
+  
   logic [ DATA_WIDTH_TB - 1 : 0 ] fifo_mem  [ FIFO_SIZE - 1 : 0 ];
   logic [ DATA_WIDTH_TB - 1 : 0 ] mbx_r_wrd;
   
   logic [ 31 : 0 ]                test_iter_num;
   logic                           bigger_read_delay;
 
-//ooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo 
 
+//-------------------------------------------------------------------------------------
 
 task transmitter ( input mailbox #( logic [ DATA_WIDTH_TB - 1 : 0 ] ) mbx_t );
   repeat ( TEST_ITERS ) begin
@@ -107,17 +108,28 @@ endtask : receiver
 task static monitor ();
   forever begin
     fork 
+      compare_w_intel ();
       check_content   ();  
       check_full      ();      
       check_empty     ();
       check_usedw     ();
-      $display ( " \n >>> ERROR LIST : ( iterations ) output_normal / usedw / full / empty / output_SHOWAHEAD : ( %0d ) %0d / %0d / %0d / %0d / %0d \n ", 
-                   test_iter_num,            check_NORMAL.errors_norm,     
-                   check_usedw.errors_usedw, check_full.errors_full, 
-                   check_empty.errors_empty, check_SHOWAHEAD.errors_sh_ahead  );
+      results         ();
     join
   end
 endtask : monitor
+
+
+task static compare_w_intel ();
+static int error_comp = 0;
+  begin
+    wait ( srst_tb );
+    @( posedge clk_tb );
+    if ( rd_dat_tb_int !== rd_dat_tb_kis ) error_comp = error_comp + 1;   
+    if ( usedw_tb_int  !== usedw_tb_kis  ) error_comp = error_comp + 1;
+    if ( empty_tb_int  !== empty_tb_kis  ) error_comp = error_comp + 1;       
+    if ( full_tb_int   !== full_tb_kis   ) error_comp = error_comp + 1;   
+  end
+endtask : compare_w_intel
 
 
 task static check_content ( );
@@ -132,11 +144,9 @@ task static check_NORMAL ( );
   static int errors_norm = 0;
   begin    
     @( posedge clk_tb );
-    if ( rd_dat_tb !== mbx_r_wrd )
+    if ( rd_dat_tb_kis !== mbx_r_wrd )
       begin
         errors_norm = errors_norm + 1; 
-        //$display ( " \n ERROR! Wrong output - received / expected : %0d / %0d \n", rd_dat_tb, mbx_r_wrd );
-        //$stop;
       end      
   end
 endtask : check_NORMAL
@@ -148,21 +158,17 @@ task static check_SHOWAHEAD();
   begin
     void '( fifo_mbx.try_peek ( mbx_peek_word ) );
     @( posedge clk_tb );
-    if ( rd_dat_tb !== mbx_peek_word )
+    if ( rd_dat_tb_kis !== mbx_peek_word )
       begin
         errors_sh_ahead = errors_sh_ahead + 1;        
-        //$display ( " \n ERROR! Wrong SHOWAHEAD word - received / current : %0d / %0d \n", rd_dat_tb, mbx_peek_word );
-        //$stop;
-      end 
-    else 
-      $display ( " \n <<< SUCCESSFULL SHOWAHEAD CHECK - received / expected : %0d / %0d \n", rd_dat_tb, mbx_peek_word );   
+      end   
   end
 endtask : check_SHOWAHEAD
 
 
 task static check_full();
   static int errors_full = 0;
-  static logic full_tb_true;
+  static logic full_tb_kis_true;
   static logic wr_req_tb_del_f;
   begin
     @( posedge clk_tb );
@@ -170,15 +176,13 @@ task static check_full();
     #1;  
     
     if ( ( fifo_mbx.num() == FIFO_SIZE ) | ( ( fifo_mbx.num() == FIFO_SIZE - 1  ) & ( wr_req_tb_del_f ) & ( SHOWAHEAD_TB ) ) )
-      full_tb_true = 1;
+      full_tb_kis_true = 1;
     else 
-      full_tb_true = 0;
+      full_tb_kis_true = 0;
     
-    if ( full_tb !== full_tb_true )
+    if ( full_tb_kis !== full_tb_kis_true )
       begin
         errors_full = errors_full + 1;  
-        //$display ( " \n ERROR! Wrong FIFO full out - fifo_mbx.num() / full_tb : %0d / %0d \n ", fifo_mbx.num(), full_tb );
-        //$stop;
       end    
   end
 endtask : check_full
@@ -188,11 +192,9 @@ task static check_empty ();
   static int errors_empty = 0;
   begin
     @( posedge clk_tb ); #1;
-    if ( ( ( fifo_mbx.num() == 0 ) & ( empty_tb !== 1 ) ) | ( ( fifo_mbx.num() !== 0 ) & ( empty_tb !== 0 ) ) ) 
+    if ( ( ( fifo_mbx.num() == 0 ) & ( empty_tb_kis !== 1 ) ) | ( ( fifo_mbx.num() !== 0 ) & ( empty_tb_kis !== 0 ) ) ) 
       begin
         errors_empty = errors_empty + 1; 
-        //$display ( " \n ERROR! Wrong FIFO empty out - fifo_mbx.num() / empty_tb : %0d / %0d \n ", fifo_mbx.num(), empty_tb ); 
-        $stop;
       end   
   end
 endtask : check_empty
@@ -207,22 +209,39 @@ task static check_usedw ();
     wr_req_tb_del = wr_req_tb;
     #1;
     mbx_num = ( ( wr_req_tb_del ) & ( SHOWAHEAD_TB ) ) ? fifo_mbx.num() + 1 : fifo_mbx.num();
-    if ( ( ( mbx_num !== FIFO_SIZE ) & ( usedw_tb !== mbx_num ) ) | 
-         ( ( mbx_num ==  FIFO_SIZE ) & ( usedw_tb !== 0       ) ) )
+    if ( ( ( mbx_num !== FIFO_SIZE ) & ( usedw_tb_kis !== mbx_num ) ) | 
+         ( ( mbx_num ==  FIFO_SIZE ) & ( usedw_tb_kis !== 0       ) ) )
       begin
-        errors_usedw = errors_usedw + 1;      
-        //$display ( " \n ERROR! Wrong FIFO words num - received / expected / fifo_mbx.num() : %0d / %0d / %0d \n", usedw_tb, mbx_num, fifo_mbx.num() );
-        //$display ( " wr_req_tb_del / SHOWAHEAD_TB / full / empty : %0d / %0d / %0d / %0d \n", wr_req_tb_del, SHOWAHEAD_TB, full_tb, empty_tb );
-        //$stop;
+        errors_usedw = errors_usedw + 1;    
       end  
   end
 endtask : check_usedw
 
 
+task static results ();
+  begin
+    $display ( " >>> ERROR COUNT : ( iterations ) output_normal / usedw / full / empty / output_SHOWAHEAD / compare_w_intel : ( %0d ) %0d / %0d / %0d / %0d / %0d / %0d \n ", 
+                 test_iter_num,            check_NORMAL.errors_norm,     
+                 check_usedw.errors_usedw, check_full.errors_full, 
+                 check_empty.errors_empty, check_SHOWAHEAD.errors_sh_ahead,
+                 compare_w_intel.error_comp );
+           
+    if ( test_iter_num == TEST_ITERS )
+      begin
+        $display ( " \n TOTAL test runs : %0d ", test_iter_num );
+        $display ( " TOTAL errors    : %0d ", check_NORMAL.errors_norm        + check_usedw.errors_usedw +
+                                              check_full.errors_full          + check_empty.errors_empty + 
+                                              check_SHOWAHEAD.errors_sh_ahead + compare_w_intel.error_comp );
+        $stop;
+      end
+
+  end
+endtask : results
+
 
 //-----------------------------------------------------------------------
 
-`ifdef KISHMAR_FIFO 
+
 fifo # (
   .DWIDTH    ( DATA_WIDTH_TB ),
   .AWIDTH    ( ADRS_WIDTH_TB ),
@@ -233,25 +252,26 @@ DUT (
   .rd_req_i  ( rd_req_tb     ),
   .wr_req_i  ( wr_req_tb     ),
   .data_i    ( wr_dat_tb     ),
-  .q_o       ( rd_dat_tb     ),
-  .usedw_o   ( usedw_tb      ),
-  .empty_o   ( empty_tb      ),
-  .full_o    ( full_tb       )
+  .q_o       ( rd_dat_tb_kis ),
+  .usedw_o   ( usedw_tb_kis  ),
+  .empty_o   ( empty_tb_kis  ),
+  .full_o    ( full_tb_kis   )
 );  
 
 
-`elsif INTEL_FIFO
-q_scfifo IP_fifo (
-  .clock  ( clk_tb        ),
-  .rdreq  ( rd_req_tb     ),
-  .wrreq  ( wr_req_tb     ),
-  .data   ( wr_dat_tb     ),
-  .q      ( rd_dat_tb     ),
-  .usedw  ( usedw_tb      ),
-  .empty  ( empty_tb      ),
-  .full   ( full_tb       )
+q_scfifo  #( 
+  .SHOWAHEAD ( SHOWAHEAD_TB  ) )
+IP_fifo      (
+  .clock     ( clk_tb        ),
+  .rdreq     ( rd_req_tb     ),
+  .wrreq     ( wr_req_tb     ),
+  .data      ( wr_dat_tb     ),
+  .q         ( rd_dat_tb_int ),
+  .usedw     ( usedw_tb_int  ),
+  .empty     ( empty_tb_int  ),
+  .full      ( full_tb_int   )
 );
-`endif
+
 
   
   
@@ -271,11 +291,12 @@ q_scfifo IP_fifo (
   
   initial
     begin
+
       test_iter_num     = 0;
       bigger_read_delay = 1;
       wr_req_tb         = 0;
       rd_req_tb         = 0;
-      wr_dat_tb         = '0;  
+      wr_dat_tb         = 0;  
       mbx_r_wrd         = 0;
     end
 

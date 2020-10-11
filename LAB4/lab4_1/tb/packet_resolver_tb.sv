@@ -85,7 +85,7 @@ module packet_resolver_tb;
 
   class packet;
     randc bit [ DATAWIDTH_TB - 1 : 0 ] data;
-    rand  bit [ EMPTWIDTH_TB - 1 : 0 ] empty;  
+    randc bit [ EMPTWIDTH_TB - 1 : 0 ] empty;  
     rand  bit                          valid;
     rand  bit                          chan;
           bit                          s_o_p;
@@ -108,12 +108,17 @@ module packet_resolver_tb;
     constraint config_packet_size { pack_size dist { [     MAXBYTESN_TB     : 3 * MINBYTESN_TB ] := BIG_PACK_DIST, 
                                                      [ 3 * MINBYTESN_TB - 1 :     MINBYTESN_TB ] := SMALL_PACK_DIST }; }  
     task run();
-      for ( int i = 0; i < pack_size; i++ ) 
+      forever
         begin
-          packet pck = new;
-          pck.randomize();
-          gen_mbx.put( pck );
-          @( drv_done );
+          this.pack_size = $urandom_range ( MINBYTESN_TB : MAXBYTESN_TB );
+          #( $urandom_range( 16 * CLK_HLFPER ) );
+          for ( int i = 0; i < this.pack_size; i++ ) 
+            begin
+              packet pck = new;
+              pck.randomize();
+              gen_mbx.put( pck );
+            end
+          @( drv_done );            
         end
     endtask : run
   
@@ -128,25 +133,28 @@ module packet_resolver_tb;
     mailbox dro_mbx;
 
     task run();
+      forever 
+        begin
+          packet pck = new; 
+          while ( dri_mbx.try_peek( pck ) )
+            begin
+              dri_mbx.get( pck );
 
-      forever begin
-        packet pck = new;
-        dri_mbx.get( pck );
-
-        drv_if.data_i          <= pck.data;     
-        drv_if.empty_i         <= pck.empty;     
-        drv_if.valid_i         <= pck.valid;
-        drv_if.channel_i       <= pck.chan;
-        drv_if.startofpacket_i <= pck.s_o_p;
-        drv_if.endofpacket_i   <= pck.e_o_p;
-      
-        @ ( posedge clk_tb );
+              drv_if.data_i          <= pck.data;     
+              drv_if.empty_i         <= pck.empty;     
+              drv_if.valid_i         <= pck.valid;
+              drv_if.channel_i       <= pck.chan;
+              drv_if.startofpacket_i <= pck.s_o_p;
+              drv_if.endofpacket_i   <= pck.e_o_p;
+          
+              @ ( posedge clk_tb );
         
-        dro_mbx.put( pck );     
+              dro_mbx.put( pck );     
         
-        drv_if.valid <= 0; 
-        -> drv_done;
-      end
+              drv_if.valid <= 0; 
+            end
+          -> drv_done;
+        end
     endtask
   
   endclass : driver
@@ -211,9 +219,9 @@ module packet_resolver_tb;
               end
           end
         
-		pck_i.print();
-		pck_o.print();
-			
+        pck_i.print();
+        pck_o.print();
+            
       end
     endtask
   endclass : scoreboard
@@ -256,7 +264,7 @@ module packet_resolver_tb;
     virtual task run();
       d0.drv_if = env_if;
       m0.mon_if = env_if;
-	  
+      
       fork
         d0.run();
         m0.run();

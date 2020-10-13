@@ -105,12 +105,12 @@ module packet_resolver_tb;
     event drv_done;
 
     randc bit [ PACK_NUM_BITSIZE - 1 : 0 ] pack_size;  
-    constraint config_packet_size { pack_size dist { [     MAXBYTESN_TB     : 3 * MINBYTESN_TB ] := BIG_PACK_DIST, 
-                                                     [ 3 * MINBYTESN_TB - 1 :     MINBYTESN_TB ] := SMALL_PACK_DIST }; }  
+    constraint config_packet_size { pack_size dist { [     MAXBYTESN_TB     : 2 * MINBYTESN_TB ] := BIG_PACK_DIST, 
+                                                     [ 2 * MINBYTESN_TB - 1 :     MINBYTESN_TB ] := SMALL_PACK_DIST }; }  
     task run();
       forever
         begin
-          this.pack_size = $urandom_range ( MINBYTESN_TB : MAXBYTESN_TB );
+          this.pack_size = $urandom_range ( MINBYTESN_TB , MAXBYTESN_TB );
           #( $urandom_range( 16 * CLK_HLFPER ) );
           for ( int i = 0; i < this.pack_size; i++ ) 
             begin

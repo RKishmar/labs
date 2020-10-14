@@ -24,6 +24,7 @@ module packet_resolver_tb;
   localparam                         BIG_PACK_DIST    = 2;
   localparam                         SMALL_PACK_DIST  = BIG_PACK_DIST * 10;
   
+  logic                              srst;   
   logic                              clk_tb;
   logic [ DATAWIDTH_TB - 1 : 0 ]     fifo_mem  [ PACK_NUM_BITSIZE - 1 : 0 ];
   logic [ DATAWIDTH_TB - 1 : 0 ]     mbx_r_wrd;
@@ -32,53 +33,54 @@ module packet_resolver_tb;
 
 
 //-----> DUT interface <-----------------------------------------------------------------------------------
- 
-  interface dut_if ( input logic   clk_tb );
-    logic                          srst;    
- 
-    logic                          ready_o;
-    logic [ DATAWIDTH_TB - 1 : 0 ] data_i;
-    logic [ EMPTWIDTH_TB - 1 : 0 ] empty_i;
-    logic [ CHANWIDTH_TB - 1 : 0 ] channel_i;  
-    logic                          valid_i;
-    logic                          startofpacket_i;
-    logic                          endofpacket_i;
-
-    logic                          ready_i;
-    logic [ DATAWIDTH_TB - 1 : 0 ] data_o;
-    logic [ EMPTWIDTH_TB - 1 : 0 ] empty_o;   
-    logic                          valid_o;
-    logic                          startofpacket_o;
-    logic                          endofpacket_o;
+    
+  interface dut_if;
+   
+    logic                          ready;
+    logic [ DATAWIDTH_TB - 1 : 0 ] data;
+    logic [ EMPTWIDTH_TB - 1 : 0 ] empty;
+    logic [ CHANWIDTH_TB - 1 : 0 ] channel;  
+    logic                          valid;
+    logic                          startofpacket;
+    logic                          endofpacket;
+    
+    modport drv ( output  ready, 
+                  input   data, empty, channel, valid, startofpacket, endofpacket );
+    modport mon ( input   ready, 
+                  output  data, empty, channel, valid, startofpacket, endofpacket );
+    
   endinterface 
 
-  virtual dut_if top_if;  
+  virtual dut_if top_if; 
+  virtual dut_if.drv drv_top_if; 
+  virtual dut_if.mon mon_top_if; 
+  
   
 //-----> DUT inst <-----------------------------------------------------------------------------------
 
   packet_resolver_top #( 
-    .DATAWIDTH_TP        ( DATAWIDTH_TB           ),
-    .EMPTWIDTH_TP        ( EMPTWIDTH_TB           ),  
-    .CHANWIDTH_TP        ( CHANWIDTH_TB           ),
-    .TARGETCHN_TP        ( TARGETCHN_TB           ),
-    .MAXBYTESN_TP        ( MAXBYTESN_TB           ),   
-    .MINBYTESN_TP        ( MINBYTESN_TB           ) )
+    .DATAWIDTH_TP        ( DATAWIDTH_TB             ),
+    .EMPTWIDTH_TP        ( EMPTWIDTH_TB             ),  
+    .CHANWIDTH_TP        ( CHANWIDTH_TB             ),
+    .TARGETCHN_TP        ( TARGETCHN_TB             ),
+    .MAXBYTESN_TP        ( MAXBYTESN_TB             ),   
+    .MINBYTESN_TP        ( MINBYTESN_TB             ) )
   packet_resolver_DUT
-  ( .clk_i               ( clk_tb                 ),
-    .srst_i              ( top_if.srst            ),
-    .ast_ready_o         ( top_if.ready_o         ),
-    .ast_data_i          ( top_if.data_i          ),
-    .ast_empty_i         ( top_if.empty_i         ),
-    .ast_channel_i       ( top_if.channel_i       ),  
-    .ast_valid_i         ( top_if.valid_i         ),
-    .ast_startofpacket_i ( top_if.startofpacket_i ),
-    .ast_endofpacket_i   ( top_if.endofpacket_i   ),
-    .ast_ready_i         ( top_if.ready_i         ),
-    .ast_data_o          ( top_if.data_o          ),
-    .ast_empty_o         ( top_if.empty_o         ),   
-    .ast_valid_o         ( top_if.valid_o         ),
-    .ast_startofpacket_o ( top_if.startofpacket_o ),
-    .ast_endofpacket_o   ( top_if.endofpacket_o   )
+  ( .clk_i               ( clk_tb                   ),
+    .srst_i              ( srst                     ),
+    .ast_ready_o         ( drv_top_if.ready         ),
+    .ast_data_i          ( drv_top_if.data          ),
+    .ast_empty_i         ( drv_top_if.empty         ),
+    .ast_channel_i       ( drv_top_if.channel       ),  
+    .ast_valid_i         ( drv_top_if.valid         ),
+    .ast_startofpacket_i ( drv_top_if.startofpacket ),
+    .ast_endofpacket_i   ( drv_top_if.endofpacket   ),
+    .ast_ready_i         ( mon_top_if.ready         ),
+    .ast_data_o          ( mon_top_if.data          ),
+    .ast_empty_o         ( mon_top_if.empty         ),   
+    .ast_valid_o         ( mon_top_if.valid         ),
+    .ast_startofpacket_o ( mon_top_if.startofpacket ),
+    .ast_endofpacket_o   ( mon_top_if.endofpacket   )
   );  
 
 //-----> transaction <--------------------------------------------------------------------------------
@@ -110,7 +112,7 @@ module packet_resolver_tb;
     task run();
       forever
         begin
-          this.pack_size = $urandom_range ( MINBYTESN_TB : MAXBYTESN_TB );
+          this.pack_size = $urandom_range ( MINBYTESN_TB, MAXBYTESN_TB );
           #( $urandom_range( 16 * CLK_HLFPER ) );
           for ( int i = 0; i < this.pack_size; i++ ) 
             begin
@@ -121,13 +123,12 @@ module packet_resolver_tb;
           @( drv_done );            
         end
     endtask : run
-  
   endclass : generator
 
 //-----> driver <--------------------------------------------------------------------------------
 
   class driver;
-    virtual dut_if drv_if;
+    virtual dut_if.drv drv_if;
     event drv_done;
     mailbox dri_mbx;
     mailbox dro_mbx;
@@ -140,29 +141,28 @@ module packet_resolver_tb;
             begin
               dri_mbx.get( pck );
 
-              drv_if.data_i          <= pck.data;     
-              drv_if.empty_i         <= pck.empty;     
-              drv_if.valid_i         <= pck.valid;
-              drv_if.channel_i       <= pck.chan;
-              drv_if.startofpacket_i <= pck.s_o_p;
-              drv_if.endofpacket_i   <= pck.e_o_p;
+              drv_if.data          <= pck.data;     
+              drv_if.empty         <= pck.empty;     
+              drv_if.valid         <= pck.valid;
+              drv_if.channel       <= pck.chan;
+              drv_if.startofpacket <= pck.s_o_p;
+              drv_if.endofpacket   <= pck.e_o_p;
           
               @ ( posedge clk_tb );
         
-              dro_mbx.put( pck );     
+              dro_mbx.put( pck );    // RETRACT - MOVE TO SCOREBOARD OR THE MONITOR 
         
               drv_if.valid <= 0; 
             end
           -> drv_done;
         end
     endtask
-  
   endclass : driver
 
 //-----> monitor <---------------------------------------------------------------------------------
 
   class monitor;
-    virtual dut_if mon_if;
+    virtual dut_if.mon mon_if;
     mailbox mon_mbx;
 
     task run();
@@ -171,18 +171,17 @@ module packet_resolver_tb;
 
     task sample_port();
       forever begin
-        if ( mon_if.srst )
+        if ( srst )
           begin
             packet pck = new;
           
             @( posedge clk_tb );   
-          
-            pck.chan  = mon_if.channel_i; 
-            pck.data  = mon_if.data_o;
-            pck.valid = mon_if.valid_o;
-            pck.empty = mon_if.empty_o;
-            pck.s_o_p = mon_if.startofpacket_o;
-            pck.e_o_p = mon_if.endofpacket_o;
+            pck.chan  = mon_if.channel; 
+            pck.data  = mon_if.data;
+            pck.valid = mon_if.valid;
+            pck.empty = mon_if.empty;
+            pck.s_o_p = mon_if.startofpacket;
+            pck.e_o_p = mon_if.endofpacket;
         
             mon_mbx.put( pck );
           end
@@ -202,6 +201,10 @@ module packet_resolver_tb;
   
     task run();
       forever begin
+      
+      
+      
+      
       
         fork 
           sbi_mbx.get( pck_i );
@@ -297,27 +300,24 @@ module packet_resolver_tb;
     begin
       automatic test t0 = new;
       t0.e0.env_if = top_if;
+      test_iter_num = 0;      
       t0.run();
     end
 
-  always 
-    begin
-      clk_tb = 1; #CLK_HLFPER; 
-      clk_tb = 0; #CLK_HLFPER;
-    end
+  initial
+    forever  
+      begin
+
+        clk_tb = 1; #CLK_HLFPER; 
+        clk_tb = 0; #CLK_HLFPER;
+      end
   
   initial
     forever 
       begin
-        top_if.srst = 0; #( $urandom_range ( MIN_RST_HLD, MAX_RST_HLD ) );      
-        top_if.srst = 1; #( $urandom_range ( MIN_RST_DLY, MAX_RST_DLY ) );   
+        srst = 0; #( $urandom_range ( MIN_RST_HLD, MAX_RST_HLD ) );      
+        srst = 1; #( $urandom_range ( MIN_RST_DLY, MAX_RST_DLY ) );   
       end
-  
-  initial
-    begin
-      test_iter_num = 0; 
-    end
-
 
     
 endmodule

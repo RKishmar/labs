@@ -51,7 +51,6 @@ module packet_resolver_tb;
     
   endinterface 
 
-  virtual dut_if top_if; 
   virtual dut_if.drv drv_top_if; 
   virtual dut_if.mon mon_top_if; 
   
@@ -117,7 +116,7 @@ module packet_resolver_tb;
           for ( int i = 0; i < this.pack_size; i++ ) 
             begin
               packet pck = new;
-              pck.randomize();
+              //pck.randomize();
               gen_mbx.put( pck );
             end
           @( drv_done );            
@@ -242,7 +241,8 @@ module packet_resolver_tb;
     mailbox   env_out_mbx;        
     event     drv_done;           
  
-    virtual dut_if env_if;    
+    virtual dut_if.mon mon_if;    
+    virtual dut_if.drv drv_if;    
 
     function new();
       d0          = new;
@@ -265,8 +265,8 @@ module packet_resolver_tb;
     endfunction
 
     virtual task run();
-      d0.drv_if = env_if;
-      m0.mon_if = env_if;
+      d0.drv_if = drv_if;
+      m0.mon_if = mon_if;
       
       fork
         d0.run();
@@ -299,7 +299,8 @@ module packet_resolver_tb;
   initial 
     begin
       automatic test t0 = new;
-      t0.e0.env_if = top_if;
+      t0.e0.drv_if = drv_top_if;
+      t0.e0.mon_if = mon_top_if;
       test_iter_num = 0;      
       t0.run();
     end

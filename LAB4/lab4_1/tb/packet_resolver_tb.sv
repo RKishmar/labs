@@ -57,7 +57,7 @@ module packet_resolver_tb;
   
 //-----> DUT inst <-----------------------------------------------------------------------------------
 
-  packet_resolver_top #( 
+  packet_resolver_top   #( 
     .DATAWIDTH_TP        ( DATAWIDTH_TB             ),
     .EMPTWIDTH_TP        ( EMPTWIDTH_TB             ),  
     .CHANWIDTH_TP        ( CHANWIDTH_TB             ),
@@ -175,10 +175,10 @@ module packet_resolver_tb;
             packet pck = new;
           
             @( posedge clk_tb );   
-            pck.chan  = mon_if.channel; 
-            pck.data  = mon_if.data;
-            pck.valid = mon_if.valid;
+            pck.data  = mon_if.data;            
             pck.empty = mon_if.empty;
+            pck.valid = mon_if.valid;           
+            pck.chan  = mon_if.channel; 
             pck.s_o_p = mon_if.startofpacket;
             pck.e_o_p = mon_if.endofpacket;
         
@@ -200,11 +200,7 @@ module packet_resolver_tb;
   
     task run();
       forever begin
-      
-      
-      
-      
-      
+    
         fork 
           sbi_mbx.get( pck_i );
           sbo_mbx.get( pck_o );

@@ -253,7 +253,7 @@ module packet_resolver_tb;
     virtual task run();
       d_o.drv_if = env_if_i;
       m_o.mon_if = env_if_o;
-      m_i.mon_if = env_if_o;
+      m_i.mon_if = env_if_i;
       
       fork
         d_o.run();

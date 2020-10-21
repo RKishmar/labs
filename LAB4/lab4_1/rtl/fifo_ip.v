@@ -53,14 +53,14 @@ module fifo_ip #( parameter DATAWIDTH_FI )
     input                           sclr;
     input                           wrreq;
     input  [ DATAWIDTH_FI - 1 : 0 ] data;
-    output [ DATAWIDTH_FI - 1 : 0 ] q;	
+    output [ DATAWIDTH_FI - 1 : 0 ] q;  
     output                          empty;
     output                          full;
 
     wire                            sub_wire0;
     wire                            sub_wire1;
     wire   [ DATAWIDTH_FI - 1 : 0 ] sub_wire2;
-    wire   [ DATAWIDTH_FI - 1 : 0 ] q     = sub_wire2 [ DATAWIDTH_FI - 1 : 0 ];	
+    wire   [ DATAWIDTH_FI - 1 : 0 ] q     = sub_wire2 [ DATAWIDTH_FI - 1 : 0 ]; 
     wire                            empty = sub_wire0;
     wire                            full  = sub_wire1;
 
@@ -77,7 +77,7 @@ module fifo_ip #( parameter DATAWIDTH_FI )
                 .aclr         (           ),
                 .almost_empty (           ),
                 .almost_full  (           ),
-                .eccstatus    (           ),
+                //.eccstatus    (           ),// deleted manually 21/10/2020 due to tb error cause
                 .usedw        (           ));
     defparam
         scfifo_component.add_ram_output_register = "OFF",

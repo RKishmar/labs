@@ -1,11 +1,9 @@
 
 
-module packet_resolver #( parameter DATAWIDTH_PR ,
-                          parameter EMPTWIDTH_PR ,  
-                          parameter CHANWIDTH_PR ,
-                          parameter TARGETCHN_PR ,
-                          parameter MAXBYTESN_PR ,   
-                          parameter MINBYTESN_PR )
+module packet_resolver #( parameter DATAWIDTH_PR,
+                          parameter EMPTWIDTH_PR,  
+                          parameter CHANWIDTH_PR,
+                          parameter TARGETCHN_PR )
 (
   input                   clk_i,
   input                   srst_i,
@@ -35,7 +33,7 @@ fifo_ip_data (
       .clock ( clk_i          ), //
       .sclr  ( srst_i         ), //  
       .data  ( snk_to_fifo    ), //
-      .q     ( fifo_to_src    ),	  
+      .q     ( fifo_to_src    ),      
       .rdreq ( srv_data.rdreq ),
       .wrreq ( srv_data.wrreq ),   
       .empty ( srv_data.empty ),
@@ -64,7 +62,7 @@ fifo_ip_info (
       .clock ( clk_i           ),
       .sclr  ( srst_i          ),   
       .data  ( sink_if.empty   ),
-      .q     ( source_if.empty ),	  
+      .q     ( source_if.empty ),     
       .rdreq ( srv_info.rdreq  ),
       .wrreq ( srv_info.wrreq  ),   
       .empty ( srv_info.empty  ),

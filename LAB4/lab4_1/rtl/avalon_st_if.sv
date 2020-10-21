@@ -1,9 +1,7 @@
 interface avalon_st_if #( parameter DATAWIDTH_IF,
                           parameter EMPTWIDTH_IF,  
                           parameter CHANWIDTH_IF,
-                          parameter TARGETCHN_IF,
-                          parameter MAXBYTESN_IF,   
-                          parameter MINBYTESN_IF )
+                          parameter TARGETCHN_IF )
                         ( input     clk_i,
                           input     srst_i );
                                   
@@ -11,9 +9,9 @@ interface avalon_st_if #( parameter DATAWIDTH_IF,
   
   logic [ DATBYTNUM_IF - 1 : 0 ] [ 7 : 0 ] data;  
   logic [ EMPTWIDTH_IF - 1 : 0 ]           empty;
+  logic                                    valid;  
   logic [ CHANWIDTH_IF - 1 : 0 ]           chan;  
   logic                                    ready;
-  logic                                    valid;
   logic                                    s_o_p;
   logic                                    e_o_p;
 

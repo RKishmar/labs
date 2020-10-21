@@ -2,9 +2,7 @@
 module packet_resolver_top #( parameter  DATAWIDTH_TP,
                               parameter  EMPTWIDTH_TP,  
                               parameter  CHANWIDTH_TP,
-                              parameter  TARGETCHN_TP,
-                              parameter  MAXBYTESN_TP,   
-                              parameter  MINBYTESN_TP )
+                              parameter  TARGETCHN_TP )
 ( input                                  clk_i,
   input                                  srst_i,
   // Avalon-ST Sink
@@ -27,9 +25,7 @@ module packet_resolver_top #( parameter  DATAWIDTH_TP,
 avalon_st_if    #( .DATAWIDTH_IF ( DATAWIDTH_TP ),
                    .EMPTWIDTH_IF ( EMPTWIDTH_TP ),  
                    .CHANWIDTH_IF ( CHANWIDTH_TP ),
-                   .TARGETCHN_IF ( TARGETCHN_TP ),
-                   .MAXBYTESN_IF ( MAXBYTESN_TP ),   
-                   .MINBYTESN_IF ( MINBYTESN_TP ) ) 
+                   .TARGETCHN_IF ( TARGETCHN_TP ) ) 
 sink_if_inst ( clk_i, srst_i );
 
 
@@ -37,18 +33,14 @@ sink_if_inst ( clk_i, srst_i );
 avalon_st_if    #( .DATAWIDTH_IF ( DATAWIDTH_TP ),
                    .EMPTWIDTH_IF ( EMPTWIDTH_TP ),  
                    .CHANWIDTH_IF ( CHANWIDTH_TP ),
-                   .TARGETCHN_IF ( TARGETCHN_TP ),
-                   .MAXBYTESN_IF ( MAXBYTESN_TP ),   
-                   .MINBYTESN_IF ( MINBYTESN_TP ) )  
+                   .TARGETCHN_IF ( TARGETCHN_TP ) )  
 source_if_inst ( clk_i, srst_i );
 
 
 packet_resolver #( .DATAWIDTH_PR ( DATAWIDTH_TP ),
                    .EMPTWIDTH_PR ( EMPTWIDTH_TP ),  
                    .CHANWIDTH_PR ( CHANWIDTH_TP ),
-                   .TARGETCHN_PR ( TARGETCHN_TP ),
-                   .MAXBYTESN_PR ( MAXBYTESN_TP ),   
-                   .MINBYTESN_PR ( MINBYTESN_TP ) ) resolver_0 (
+                   .TARGETCHN_PR ( TARGETCHN_TP ) ) resolver_0 (
                    .clk_i        ( clk_i          ),
                    .srst_i       ( srst_i         ),
                    .sink_if      ( sink_if_inst   ),

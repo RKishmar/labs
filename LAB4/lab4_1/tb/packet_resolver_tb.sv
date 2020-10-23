@@ -99,12 +99,11 @@ module packet_resolver_tb;
 
   class generator;
     mailbox gen_mbx;
-    event drv_done;
     randc bit [ PACK_NUM_BITSIZE - 1 : 0 ] pack_size;  
     /*constraint config_packet_size { pack_size dist { [     MAXBYTESN_TB     : 2 * MINBYTESN_TB ] := BIG_PACK_DIST, 
                                                      [ 2 * MINBYTESN_TB - 1 :     MINBYTESN_TB ] := SMALL_PACK_DIST }; } */ 
     task run;
-      $display ( " GEN RUN START " );
+
         forever
           begin
             this.pack_size = $random;
@@ -114,38 +113,42 @@ module packet_resolver_tb;
                 packet pck = new;
                 pck.randomize_packet;
                 gen_mbx.put( pck );
-              end
-            @( drv_done );            
+              end      $display ( " GEN RUN END DRV WAIT <<<<<<<<<<< " );           
           end
 
     endtask : run
   
-  endclass 
+  endclass : generator
 
 //-----> driver <--------------------------------------------------------------------------------
 
   class driver;
     virtual avalon_st_if #( DATAWIDTH_TB, EMPTWIDTH_TB, 
                             CHANWIDTH_TB, TARGETCHN_TB ) drv_if; 
-    event   drv_done;
     mailbox dri_mbx;
     packet  pck;
 
     task run;
-      begin
-	    $display ( " DRV RUN START " );
-        pck = new;     
-        forever 
-          begin  
-            dri_mbx.get( pck );
-            $display ( " DRIVER GET PACKAGE DONE " );
-            { >> { drv_if } } = pck.str; // drive packed data to unpacked structure (interface)
-            $display ( " DRIVER DRIVE IF DONE " );
-            @ ( posedge clk_tb );
-          end
-        -> drv_done;
+      packet pck = new;     
+      forever 
+        begin
+          while ( dri_mbx.try_peek( pck ) )
+            begin
+              dri_mbx.get( pck );
 
-      end 
+              drv_if.data  = pck.str.data;     
+              drv_if.empty = pck.str.empty;     
+              drv_if.valid = pck.str.valid;
+              drv_if.chan  = pck.str.chan;
+              drv_if.s_o_p = pck.str.s_o_p;
+              drv_if.e_o_p = pck.str.e_o_p;
+          
+              @ ( posedge clk_tb );
+
+              drv_if.valid = 0; 
+            end
+
+        end
     endtask
   
   endclass : driver
@@ -158,15 +161,23 @@ module packet_resolver_tb;
     mailbox mon_mbx;
     packet  pck;
 
-    task run; 
-      begin $display ( " MON NEW START " );
-        pck = new;         
-        forever begin $display ( " MON SAMPLEPORT START2 " );
-          @( posedge clk_tb );   
-          pck.str = { >> { mon_if } }; // drive unpacked data to a packed structure
-          $display ( " MONITOR pck.str: %0p", pck.str );
-          mon_mbx.put( pck );
-        end
+    task run;
+      packet pck = new; 
+      
+      forever begin
+        if ( srst_tb )
+          begin
+            @( posedge clk_tb );   
+          
+            pck.str.chan  = mon_if.chan; 
+            pck.str.data  = mon_if.data;
+            pck.str.valid = mon_if.valid;
+            pck.str.empty = mon_if.empty;
+            pck.str.s_o_p = mon_if.s_o_p;
+            pck.str.e_o_p = mon_if.e_o_p;
+        
+            mon_mbx.put( pck );
+          end
       end
     endtask
   endclass : monitor
@@ -185,7 +196,7 @@ module packet_resolver_tb;
       begin  
         pck_i = new;
         pck_o = new;
-        forever begin $display ( " SCB RUN START " );
+        forever begin 
           @( posedge clk_tb );
           if ( srst_tb )
             begin 
@@ -193,7 +204,7 @@ module packet_resolver_tb;
                 sbi_mbx.get( pck_i );
                 sbo_mbx.get( pck_o );
               join 
-              $display ( " SCOREBOARD CHECK START pck_o / pck_i: %0h / %0h", pck_o, pck_i );
+              $display ( " SCOREBOARD pck_o / pck_i: %0h / %0h", pck_o, pck_i );
             if ( pck_i.str.chan == TARGETCHN_TB )
               begin     
                 if ( pck_o !== pck_i ) 
@@ -224,8 +235,7 @@ module packet_resolver_tb;
 
     mailbox   env_gen_mbx;        
     mailbox   env_inp_mbx;        
-    mailbox   env_out_mbx;        
-    event     drv_done;           
+    mailbox   env_out_mbx;            
  
     virtual avalon_st_if #( DATAWIDTH_TB, EMPTWIDTH_TB, 
                             CHANWIDTH_TB, TARGETCHN_TB ) env_if_i;    
@@ -233,7 +243,6 @@ module packet_resolver_tb;
                             CHANWIDTH_TB, TARGETCHN_TB ) env_if_o;      
 
     function new;
-      $display ( " ENV NEW START " );
 	  fork
         d_o          = new;
         g_o          = new;	  
@@ -244,16 +253,12 @@ module packet_resolver_tb;
         env_inp_mbx  = new;
         env_out_mbx  = new;
 	  join
-      $display ( " ENV NEW2 START " );
       d_o.dri_mbx  = env_gen_mbx;
       g_o.gen_mbx  = env_gen_mbx;
       m_i.mon_mbx  = env_inp_mbx;
       s_i.sbi_mbx  = env_inp_mbx;
       s_i.sbo_mbx  = env_out_mbx;
       m_o.mon_mbx  = env_out_mbx;
-      $display ( " ENV NEW3 START " );
-      d_o.drv_done = drv_done;
-      g_o.drv_done = drv_done;
     endfunction
 
     task run;
@@ -263,7 +268,6 @@ module packet_resolver_tb;
         m_i.mon_if = env_if_i;
       
         fork
-          $display ( " ENV ALL MODS RUN START " );
           d_o.run;
           m_i.run;
           m_o.run;
@@ -282,7 +286,6 @@ module packet_resolver_tb;
     environment e0;
 
     function new;
-      $display ( " TEST NEW START " );
       e0 = new;
     endfunction
 
@@ -311,14 +314,8 @@ module packet_resolver_tb;
     end
   
   initial
-    forever 
-      begin
-        //srst_tb = 0; #( $urandom_range ( MIN_RST_HLD, MAX_RST_HLD ) );      
-        srst_tb = 1; #( $urandom_range ( MIN_RST_DLY, MAX_RST_DLY ) );   
-      end
-  
-  initial
     begin
+	  srst_tb       = 1;
       test_iter_num = 0; 
     end
 

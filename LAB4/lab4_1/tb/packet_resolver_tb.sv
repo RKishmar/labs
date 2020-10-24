@@ -12,11 +12,12 @@ module packet_resolver_tb;
   localparam                         TARGETCHN_TB     = 1;
   localparam                         MAXBYTESN_TB     = 1514;   
   localparam                         MINBYTESN_TB     = 60; 
-  localparam                         GEN_DEL_MAX      = CLK_HLFPER * 16;  
-  localparam                         MIN_RST_DLY      = CLK_HLFPER * MAXBYTESN_TB * 2;
-  localparam                         MAX_RST_DLY      = 32 * MIN_RST_DLY;
-  localparam                         MIN_RST_HLD      = 1;
-  localparam                         MAX_RST_HLD      = CLK_HLFPER * 8;
+  
+  localparam                         GEN_DEL_MAX      = CLK_HLFPER  * 2;  
+  localparam                         MIN_RST_DLY      = CLK_HLFPER  * MAXBYTESN_TB * 2;
+  localparam                         MAX_RST_HLD      = CLK_HLFPER  * 8;
+  localparam                         MIN_RST_HLD      = 1;  
+  localparam                         MAX_RST_DLY      = MIN_RST_DLY * 32;
 
   localparam                         PACK_NUM_BITSIZE = $bits ( MAXBYTESN_TB );
   localparam                         TEST_NUM_BITSIZE = $bits ( TEST_ITERS   );
@@ -77,45 +78,45 @@ module packet_resolver_tb;
     } str;
     
     
-    function void randomize_packet ( );
+    function void randomize_packet;
       begin
-        this.str.data  = $random();
-        this.str.empty = $random();
-        this.str.valid = $random();
-        this.str.chan  = $random();
-        this.str.s_o_p = $random();
-        this.str.e_o_p = $random();
+        this.str.data  = $random;
+        this.str.empty = $random;
+        this.str.valid = $random;
+        this.str.chan  = $random;
+        this.str.s_o_p = $random;
+        this.str.e_o_p = $random;
       end
     endfunction
           
-    function void print ( );
+    function void print;
       $display ( " Packet content -> data: %0d, empty: %0d, valid: %0b, chan: %0d, sop/eop: %0b/%0b ", 
                  str.data, str.empty, str.valid, str.chan, str.s_o_p, str.e_o_p );
     endfunction
   
-  endclass : packet
+  endclass 
 
 //-----> generator <--------------------------------------------------------------------------------
 
   class generator;
     mailbox gen_mbx;
-    event drv_done;
+    packet pck = new;
     randc bit [ PACK_NUM_BITSIZE - 1 : 0 ] pack_size;  
     /*constraint config_packet_size { pack_size dist { [     MAXBYTESN_TB     : 2 * MINBYTESN_TB ] := BIG_PACK_DIST, 
                                                      [ 2 * MINBYTESN_TB - 1 :     MINBYTESN_TB ] := SMALL_PACK_DIST }; } */ 
-    task run();
-      forever
-        begin
-          this.pack_size = $random();
-          #( $urandom_range( GEN_DEL_MAX ) );
-          for ( int i = 0; i < this.pack_size; i++ ) 
-            begin
-              packet pck = new;
-              pck.randomize_packet( );
-              gen_mbx.put( pck );
-            end
-          @( drv_done );            
-        end
+    task run;
+        forever
+          begin
+            this.pack_size = $random;
+            #( $urandom_range( GEN_DEL_MAX ) );
+            for ( int i = 0; i < this.pack_size; i++ ) 
+              begin
+                pck.randomize_packet;
+                gen_mbx.put( pck );
+				#(CLK_HLFPER/2);
+              end          
+          end
+
     endtask : run
   
   endclass : generator
@@ -125,22 +126,32 @@ module packet_resolver_tb;
   class driver;
     virtual avalon_st_if #( DATAWIDTH_TB, EMPTWIDTH_TB, 
                             CHANWIDTH_TB, TARGETCHN_TB ) drv_if; 
-    event drv_done;
     mailbox dri_mbx;
+    packet  pck = new;
+	  
+    task run;
 
-    task run();
-      packet pck = new;     
+
+      $display ( " DRV RUN 2 " );	  
       forever 
         begin
-          while ( dri_mbx.try_peek( pck ) )
+         // while ( dri_mbx.try_peek( pck ) )
             begin
               dri_mbx.get( pck );
-              { >> { drv_if } } = pck.str; // drive packed data to unpacked structure (interface)
-              
+			  $display ( " DRV RUN 4 " );
+
+              drv_if.data  = pck.str.data;     
+              drv_if.empty = pck.str.empty;     
+              drv_if.valid = pck.str.valid;
+              drv_if.chan  = pck.str.chan;
+              drv_if.s_o_p = pck.str.s_o_p;
+              drv_if.e_o_p = pck.str.e_o_p;
+          
               @ ( posedge clk_tb );
 
+              drv_if.valid = 0; 
             end
-          -> drv_done;
+
         end
     endtask
   
@@ -152,20 +163,23 @@ module packet_resolver_tb;
     virtual avalon_st_if #( DATAWIDTH_TB, EMPTWIDTH_TB, 
                             CHANWIDTH_TB, TARGETCHN_TB ) mon_if;
     mailbox mon_mbx;
-
-    task run();
-      sample_port();
-    endtask
-
-    task sample_port();
-      packet pck = new; 
-      
+    packet  pck = new; 
+    
+	task run;
       forever begin
-        if ( srst_tb )
-          begin
+        //if ( srst_tb )
+          begin 
             @( posedge clk_tb );   
-            pck.str = { >> { mon_if } }; // drive unpacked data to a packed structure
-            mon_mbx.put( pck );
+            pck.str.chan  = mon_if.chan; 
+            pck.str.data  = mon_if.data;
+            pck.str.valid = mon_if.valid;
+            pck.str.empty = mon_if.empty;
+            pck.str.s_o_p = mon_if.s_o_p;
+            pck.str.e_o_p = mon_if.e_o_p;
+            this.mon_mbx.put( pck );
+			$display ( " MONITOR PUT DONE pck.str: %0p", pck.str );
+			$display ( " MONITOR THIS.MBX SIZE: %0p", this.mon_mbx.num );
+			
           end
       end
     endtask
@@ -181,17 +195,19 @@ module packet_resolver_tb;
     packet       pck_i;
     packet       pck_o;
   
-    task run();
-      forever begin
-        if ( srst_tb )
-          begin 
-            @( posedge clk_tb );
-            
-            fork 
-              sbi_mbx.get( pck_i );
-              sbo_mbx.get( pck_o );
-            join 
-        
+    task run;
+      begin  
+        pck_i = new;
+        pck_o = new;
+        forever begin 
+          @( posedge clk_tb );
+          if ( srst_tb )
+            begin 
+              fork 
+                sbi_mbx.get( pck_i );
+                sbo_mbx.get( pck_o );
+              join 
+              $display ( " SCOREBOARD pck_o / pck_i: %0h / %0h", pck_o, pck_i );
             if ( pck_i.str.chan == TARGETCHN_TB )
               begin     
                 if ( pck_o !== pck_i ) 
@@ -203,9 +219,10 @@ module packet_resolver_tb;
                   $display ( "OK! packages match: %0h", pck_i );
               end
         
-            pck_i.print();
-            pck_o.print();
-          end  
+            pck_i.print;
+            pck_o.print;
+          end 
+        end       
       end
     endtask
   endclass : scoreboard
@@ -221,47 +238,57 @@ module packet_resolver_tb;
 
     mailbox   env_gen_mbx;        
     mailbox   env_inp_mbx;        
-    mailbox   env_out_mbx;        
-    event     drv_done;           
+    mailbox   env_out_mbx;            
  
     virtual avalon_st_if #( DATAWIDTH_TB, EMPTWIDTH_TB, 
                             CHANWIDTH_TB, TARGETCHN_TB ) env_if_i;    
     virtual avalon_st_if #( DATAWIDTH_TB, EMPTWIDTH_TB, 
                             CHANWIDTH_TB, TARGETCHN_TB ) env_if_o;      
 
-    function new();
-      d_o          = new;
-      m_o          = new;
-      m_i          = new;
-      g_o          = new;
-      s_i          = new;
-      env_gen_mbx  = new();
-      env_inp_mbx  = new();
-      env_out_mbx  = new();
-
+    function new;
+	  fork
+        d_o          = new;
+        g_o          = new;	  
+        m_o          = new;
+        m_i          = new;
+        s_i          = new;
+        env_gen_mbx  = new;
+        env_inp_mbx  = new;
+        env_out_mbx  = new;
+	  join
       d_o.dri_mbx  = env_gen_mbx;
       g_o.gen_mbx  = env_gen_mbx;
       m_i.mon_mbx  = env_inp_mbx;
       s_i.sbi_mbx  = env_inp_mbx;
       s_i.sbo_mbx  = env_out_mbx;
       m_o.mon_mbx  = env_out_mbx;
-      
-      d_o.drv_done = drv_done;
-      g_o.drv_done = drv_done;
     endfunction
 
-    virtual task run();
-      d_o.drv_if = env_if_i;
-      m_o.mon_if = env_if_o;
-      m_i.mon_if = env_if_i;
+    task run;
+      begin 
+        d_o.drv_if = env_if_i;
+        m_o.mon_if = env_if_o;
+        m_i.mon_if = env_if_i;
       
-      fork
-        d_o.run();
-        m_i.run();
-        m_o.run();
-        g_o.run();
-        s_i.run();
-      join_any
+        fork
+          d_o.run;
+          m_i.run;
+          m_o.run;
+          g_o.run;
+          s_i.run;
+		  begin
+            forever begin		  
+		      $display ( " M  O  N  I  T  O  R        : %p", g_o.gen_mbx.num );
+			  $display ( " D  R  I  V  E  R           : %p", d_o.dri_mbx.num );
+			  $display ( " S C O R E B O A R D _I     : %p", s_i.sbi_mbx.num );
+			  $display ( " S C O R E B O A R D _O     : %p", s_i.sbo_mbx.num );
+			  
+			  #16;
+			end
+	      end
+		  #48;
+        join
+      end
     endtask
   
   endclass : environment
@@ -271,12 +298,12 @@ module packet_resolver_tb;
   class test;
     environment e0;
 
-    function new();
+    function new;
       e0 = new;
     endfunction
 
-    task run();
-      e0.run();
+    task run;
+      e0.run;
     endtask
   
   endclass : test
@@ -290,7 +317,7 @@ module packet_resolver_tb;
       t0.e0.env_if_i = top_if_i;
       t0.e0.env_if_o = top_if_o;
 
-      t0.run();
+      t0.run;
     end
 
   always 
@@ -300,14 +327,8 @@ module packet_resolver_tb;
     end
   
   initial
-    forever 
-      begin
-        srst_tb = 0; #( $urandom_range ( MIN_RST_HLD, MAX_RST_HLD ) );      
-        srst_tb = 1; #( $urandom_range ( MIN_RST_DLY, MAX_RST_DLY ) );   
-      end
-  
-  initial
     begin
+	  srst_tb       = 1;
       test_iter_num = 0; 
     end
 

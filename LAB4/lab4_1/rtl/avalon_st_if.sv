@@ -15,7 +15,4 @@ interface avalon_st_if #( parameter DATAWIDTH_IF,
   logic                                    s_o_p;
   logic                                    e_o_p;
 
-  modport source_if ( input  ready, output data, valid, empty, chan, s_o_p, e_o_p );
-  modport sink_if   ( output ready, input  data, valid, empty, chan, s_o_p, e_o_p );
-
 endinterface

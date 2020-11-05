@@ -5,7 +5,7 @@ module packet_resolver_top #( parameter  DATAWIDTH_TP,
                               parameter  TARGETCHN_TP )
 ( input                                  clk_i,
   input                                  srst_i,
-  // Avalon-ST Sink
+ 
   output logic                           ast_ready_o,
   input  logic [ DATAWIDTH_TP - 1 : 0 ]  ast_data_i,
   input  logic [ EMPTWIDTH_TP - 1 : 0 ]  ast_empty_i,
@@ -13,7 +13,7 @@ module packet_resolver_top #( parameter  DATAWIDTH_TP,
   input  logic                           ast_valid_i,
   input  logic                           ast_startofpacket_i,
   input  logic                           ast_endofpacket_i,
-  // Avalon-ST Source
+
   input  logic                           ast_ready_i,
   output logic [ DATAWIDTH_TP - 1 : 0 ]  ast_data_o,
   output logic [ EMPTWIDTH_TP - 1 : 0 ]  ast_empty_o,   
@@ -22,26 +22,14 @@ module packet_resolver_top #( parameter  DATAWIDTH_TP,
   output logic                           ast_endofpacket_o
 );
 
-avalon_st_if    #( .DATAWIDTH_IF ( DATAWIDTH_TP ),
-                   .EMPTWIDTH_IF ( EMPTWIDTH_TP ),  
-                   .CHANWIDTH_IF ( CHANWIDTH_TP ),
-                   .TARGETCHN_IF ( TARGETCHN_TP ) ) 
-sink_if_inst ( clk_i, srst_i );
+avalon_st_if    #( DATAWIDTH_TP, EMPTWIDTH_TP, CHANWIDTH_TP, TARGETCHN_TP ) 
+sink_if_inst     ( clk_i, srst_i );
 
+avalon_st_if    #( DATAWIDTH_TP, EMPTWIDTH_TP, CHANWIDTH_TP, TARGETCHN_TP )  
+source_if_inst   ( clk_i, srst_i );
 
-
-avalon_st_if    #( .DATAWIDTH_IF ( DATAWIDTH_TP ),
-                   .EMPTWIDTH_IF ( EMPTWIDTH_TP ),  
-                   .CHANWIDTH_IF ( CHANWIDTH_TP ),
-                   .TARGETCHN_IF ( TARGETCHN_TP ) )  
-source_if_inst ( clk_i, srst_i );
-
-
-packet_resolver #( .DATAWIDTH_PR ( DATAWIDTH_TP ),
-                   .EMPTWIDTH_PR ( EMPTWIDTH_TP ),  
-                   .CHANWIDTH_PR ( CHANWIDTH_TP ),
-                   .TARGETCHN_PR ( TARGETCHN_TP ) ) resolver_0 (
-                   .clk_i        ( clk_i          ),
+packet_resolver #( DATAWIDTH_TP, EMPTWIDTH_TP, CHANWIDTH_TP, TARGETCHN_TP )
+resolver_0       ( .clk_i        ( clk_i          ),
                    .srst_i       ( srst_i         ),
                    .sink_if      ( sink_if_inst   ),
                    .source_if    ( source_if_inst )
@@ -61,7 +49,7 @@ always_ff @( posedge clk_i )
 
 always_ff @( posedge clk_i )
   begin
-    if ( !srst_i )
+    if ( srst_i )
       begin
         ast_data_o          <= 0;
         ast_valid_o         <= 0;
@@ -76,7 +64,7 @@ always_ff @( posedge clk_i )
         ast_valid_o         <= source_if_inst.valid;
         ast_startofpacket_o <= source_if_inst.s_o_p;
         ast_endofpacket_o   <= source_if_inst.e_o_p;
-        ast_empty_o         <= source_if_inst.empty;
+        ast_empty_o         <= source_if_inst.empty; 
         ast_ready_o         <= sink_if_inst.ready;
       end
   end

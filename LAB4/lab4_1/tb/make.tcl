@@ -3,6 +3,7 @@ vlib work
 quit -sim
 
 vlog     ../rtl/fifo_ip.v
+vlog -sv ../rtl/packet_resolver.sv
 vlog -sv ../rtl/packet_resolver_top.sv
 vlog -sv packet_resolver_tb.sv
 vlog -work work -refresh

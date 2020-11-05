@@ -64,7 +64,9 @@ module fifo_ip #( parameter DATAWIDTH_FI )
     wire                            empty = sub_wire0;
     wire                            full  = sub_wire1;
 
-
+	wire   [ DATAWIDTH_FI - 1 : 0 ] usedw_w;
+	reg    [ DATAWIDTH_FI - 1 : 0 ] usedw_r;
+	
     scfifo  scfifo_component  (
                 .clock        ( clock     ),
                 .data         ( data      ),
@@ -78,7 +80,7 @@ module fifo_ip #( parameter DATAWIDTH_FI )
                 .almost_empty (           ),
                 .almost_full  (           ),
                 //.eccstatus    (           ),// deleted manually 21/10/2020 due to tb error cause
-                .usedw        (           ));
+                .usedw        ( usedw_w  ));
     defparam
         scfifo_component.add_ram_output_register = "OFF",
         scfifo_component.intended_device_family  = "Cyclone V",
@@ -90,7 +92,6 @@ module fifo_ip #( parameter DATAWIDTH_FI )
         scfifo_component.overflow_checking       = "ON",
         scfifo_component.underflow_checking      = "ON",
         scfifo_component.use_eab                 = "ON";
-
 
 endmodule
 
